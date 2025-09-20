@@ -5,6 +5,7 @@ wcstombs = 0x8000f138
 memmove = 0x8000f1f0
 memcmp = 0x8000f314
 snprintf = 0x80011938
+sprintf = 0x80011a2c
 qsort = 0x80011b00
 rand = 0x80011c70
 srand = 0x80011c90
@@ -123,7 +124,7 @@ busClock__2OS = 0x800000f8
 
 #Low Level Network
 Patch_LoginPrintHeader = 0x80276054
-Patch_WiimmfiURLs = 0x8027a404
+# Removed Wiimmfi URL references
 Patch_AuthserverHosts = 0x8027a474
 SSL_Initialised = 0x80386d4c
 
@@ -141,7 +142,7 @@ SendMatchCommand__3DWCFQ23DWC12MatchCommandUiUiUsPvUi = 0x800dbd38
 SetRecvBuffer__3DWCFUcPvi = 0x800e8750
 Patch_AuthServerOverride = 0x800ecaac
 Patch_HostHeader = 0x800ed868
-Patch_WiimmfiHook1 = 0x800ee3a0
+# Removed Wiimmfi hook 1
 loginRegion__3DWC = 0x80384fd0
 DWC_AuthServer = 0x80386338
 authServer__3DWC = 0x80386338 
@@ -439,13 +440,21 @@ NETSHA1GetDigest = 0x801d25f8
 SHA1Init__3NETFPQ23NET11SHA1Context = 0x801d24f4
 SHA1Update__3NETFPQ23NET11SHA1ContextPCvUi = 0x801d2544
 SHA1GetDigest__3NETFPQ23NET11SHA1ContextPv = 0x801d25f8
-Patch_WiimmfiHook2 = 0x801d4efc
+# Removed Wiimmfi hook 2
 
 #NHTTP
 GetBodyAll__5NHTTPFPQ25NHTTP3ResPPc = 0x801d937c
+# NHTTP functions moved to WiiLink Symbols section
+
+#WiiLink
+Real_DWCi_Auth_SendRequest = 0x800ed6ec
+s_auth_work = 0x8038633c
+s_auth_error = 0x802f1cB8
+WWFC_CUSTOM_REGION = 0x80005efc
 
 #SSL
 initialized__3SSL = 0x80386d4c
+SSL_Init = 0x801d6700  # Added for HTTPS support
 
 
 
@@ -1867,5 +1876,20 @@ IsBattle__Fv = 0x80860a8c
 GetItemIconPaneName__F6ItemIdUi = 0x80860af0
 TimerToTextInfo__FRC5TimerRQ24Text4Info = 0x808608e4
 
+##WiiLink Symbols##
+# WiiLink authentication symbols
+Real_DWCi_Auth_SendRequest = 0x800ed6ec
+s_auth_work = 0x8038633c
+s_auth_error = 0x802f1cB8
+# WWFC_CUSTOM_REGION is defined above at 0x80005efc
+
+# NHTTP function symbols
+NHTTPCreateRequest__FPCciPvUiPvPv = 0x801d8ff8
+NHTTPSendRequestAsync__FPv = 0x801d925c
+NHTTPDestroyResponse__FPv = 0x801d92f8
+NHTTPGetResultCode = 0x801d6300
+NHTTPGetBodyLength = 0x801d6400
+NHTTPGetBody = 0x801d6500
+NHTTPGetAllResponseHeaders = 0x801d6600
 
 

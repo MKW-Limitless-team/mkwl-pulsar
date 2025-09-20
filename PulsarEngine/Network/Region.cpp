@@ -1,15 +1,24 @@
 #include <kamek.hpp>
 #include <core/rvl/DWC/DWC.hpp>
 #include <PulsarSystem.hpp>
+#include <Settings/Settings.hpp>
+#include <Network/WiiLink.hpp>
+#include <Network/Network.hpp>
+#include <MarioKartWii/RKNet/RKNetController.hpp>
+
+extern "C" {
+    // WiiLink external symbol
+    extern u32 WWFC_CUSTOM_REGION;
+}
 
 namespace Pulsar {
 namespace Network {
 //Region Patch (Leseratte)
 static void PatchLoginRegion() {
-    u32 region = System::sInstance->GetInfo().GetWiimmfiRegion();
+    WWFC_CUSTOM_REGION = System::sInstance->netMgr.region;
     char path[0x9];
-    snprintf(path, 0x9, "%08d", region + 100000);
-    for(int i = 0; i < 8; ++i) {
+    snprintf(path, 0x9, "%08d", System::sInstance->netMgr.region + 100000);
+    for (int i = 0; i < 8; ++i) {
         DWC::loginRegion[i] = path[i];
     }
 }
@@ -23,7 +32,7 @@ BootHook LoginRegion(PatchLoginRegion, 2);
 
 int PatchRegion(char* path, u32 len, const char* fmt, const char* mode) {
     const Info& info = System::sInstance->GetInfo();
-    return snprintf(path, len, fmt, mode, info.GetWiimmfiRegion());
+    return snprintf(path, len, fmt, mode, System::sInstance->netMgr.region);
 }
 kmCall(0x8065921c, PatchRegion);
 kmCall(0x80659270, PatchRegion);
@@ -36,10 +45,16 @@ kmCall(0x80659788, PatchRegion);
 static int GetFriendsSearchType(int curType, u32 regionId) {
     register u8 friendRegionId;
     asm(mr friendRegionId, r0;);
-    u8 region = System::sInstance->GetInfo().GetWiimmfiRegion();
-    if(region != friendRegionId) return curType;
-    else if(curType == 7) return 6;
-    else return 9;
+    if ((System::sInstance->netMgr.region == 0x0A || System::sInstance->netMgr.region == 0x0B || System::sInstance->netMgr.region == 0x0C || System::sInstance->netMgr.region == 0x0D || System::sInstance->netMgr.region == 0x0E || System::sInstance->netMgr.region == 0x0F ||
+         System::sInstance->netMgr.region == 0x14 || System::sInstance->netMgr.region == 0x15) ||
+        (friendRegionId == 0x0A || friendRegionId == 0x0B || friendRegionId == 0x0C || friendRegionId == 0x0D || friendRegionId == 0x0E || friendRegionId == 0x0F ||
+         friendRegionId == 0x14 || friendRegionId == 0x15)) {
+        if (curType == 7) return 6;
+        return 9;
+    }
+    if (System::sInstance->netMgr.region != friendRegionId) return curType;
+    if (curType == 7) return 6;
+    return 9;
 }
 kmBranch(0x8065a03c, GetFriendsSearchType);
 kmBranch(0x8065a088, GetFriendsSearchType);
@@ -47,7 +62,7 @@ kmBranch(0x8065a088, GetFriendsSearchType);
 
 
 static u32 PatchRKNetControllerRegion() {
-    return System::sInstance->GetInfo().GetWiimmfiRegion();
+    return System::sInstance->netMgr.region;
 }
 kmCall(0x80653640, PatchRKNetControllerRegion);
 kmWrite32(0x80653644, 0x7c651b78);

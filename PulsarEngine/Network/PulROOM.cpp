@@ -17,6 +17,7 @@ namespace Network {
 static void ConvertROOMPacketToData(const PulROOM& packet) {
     System* system = System::sInstance;
     system->netMgr.hostContext = packet.hostSystemContext;
+    system->netMgr.hostContext2 = packet.hostSystemContext2;
     system->netMgr.racesPerGP = packet.raceCount;
 }
 

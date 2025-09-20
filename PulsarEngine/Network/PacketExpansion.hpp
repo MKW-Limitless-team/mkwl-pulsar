@@ -53,8 +53,10 @@ struct PulRH2 : public      RKNet::RACEHEADER2Packet {};
 struct PulROOM : public     RKNet::ROOMPacket {
 
     //Generic ROOM settings
-    u32 hostSystemContext; //System's context but with just gamemodes taken from the settings
+    u64 hostSystemContext; //System's context but with just gamemodes taken from the settings
+    u32 hostSystemContext2; // Used by WiiLink
     u8 raceCount;
+    u8 extendedTeams[4]; // Used by WiiLink for additional team information
 };
 
 enum SELECTComboStatus {
