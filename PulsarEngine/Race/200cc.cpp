@@ -2,8 +2,11 @@
 #include <MarioKartWii/Kart/KartManager.hpp>
 #include <MarioKartWii/Effect/EffectMgr.hpp> 
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
+#include <MarioKartWii/Race/Racedata.hpp>
 #include <Race/200ccParams.hpp>
 #include <PulsarSystem.hpp>
+#include <Settings/Settings.hpp>
+#include <Settings/SettingsParam.hpp>
 
 //Unoptimized code which is mostly a port of Stebler's version which itself comes from CTGP's, speed factor is in the LapSpeedModifier code
 
@@ -19,8 +22,16 @@ static void CannonExitSpeed() {
 }
 kmCall(0x805850c8, CannonExitSpeed);
 
+static bool IsBrakeDriftAllowedContext() {
+    System* system = System::sInstance;
+    if(system->IsContext(PULSAR_200)) return true; // always on in 200cc
+    const RacedataSettings& rs = Racedata::sInstance->racesScenario.settings;
+    if(rs.engineClass != CC_150) return false; // only allow 150cc when enabled
+    return Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_MENU, SETTINGMENU_RADIO_BRAKEDRIFT) == MENUSETTING_BRAKEDRIFT_ENABLED;
+}
+
 void EnableBrakeDrifting(Input::ControllerHolder& controllerHolder) {
-    if(System::sInstance->IsContext(PULSAR_200)) {
+    if(IsBrakeDriftAllowedContext()) {
         const ControllerType controllerType = controllerHolder.curController->GetType();
         const u16 inputs = controllerHolder.inputStates[0].buttonRaw;
         u16 inputsMask = 0x700;
@@ -60,7 +71,7 @@ kmCall(0x80521828, FixGhostBrakeDrifting);
 
 
 bool IsBrakeDrifting(const Kart::Status& status) {
-    if(System::sInstance->IsContext(PULSAR_200)) {
+    if(IsBrakeDriftAllowedContext()) {
         u32 bitfield0 = status.bitfield0;
         const Input::ControllerHolder& controllerHolder = status.link->GetControllerHolder();
         if((bitfield0 & 0x40000) != 0 && (bitfield0 & 0x1F) == 0xF && (bitfield0 & 0x80100000) == 0
@@ -103,7 +114,7 @@ kmCall(0x806faff8, BrakeDriftingSoundWrapper);
 kmWrite32(0x80698f88, 0x60000000);
 static int BrakeEffectBikes(Effects::Player& effects) {
     const Kart::Player* kartPlayer = effects.kartPlayer;
-    if(System::sInstance->IsContext(PULSAR_200)) {
+    if(IsBrakeDriftAllowedContext()) {
         if(IsBrakeDrifting(*kartPlayer->pointers.kartStatus)) effects.CreateAndUpdateEffectsByIdxVelocity(effects.bikeDriftEffects, 25, 26, 1);
         else effects.FollowFadeEffectsByIdxVelocity(effects.bikeDriftEffects, 25, 26, 1);
     }
@@ -114,7 +125,7 @@ kmCall(0x80698f8c, BrakeEffectBikes);
 kmWrite32(0x80698048, 0x60000000);
 static int BrakeEffectKarts(Effects::Player& effects) {
     Kart::Player* kartPlayer = effects.kartPlayer;
-    if(System::sInstance->IsContext(PULSAR_200)) {
+    if(IsBrakeDriftAllowedContext()) {
         if(IsBrakeDrifting(*kartPlayer->pointers.kartStatus)) effects.CreateAndUpdateEffectsByIdxVelocity(effects.kartDriftEffects, 34, 36, 1);
         else effects.FollowFadeEffectsByIdxVelocity(effects.kartDriftEffects, 34, 36, 1);
     }

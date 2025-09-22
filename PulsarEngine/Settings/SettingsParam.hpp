@@ -35,9 +35,7 @@ enum Type {
 };
 
 //If you want to add settings to your packs, they go in this enum, and GetUserSettingValue should be used to obtain the value of a given setting
-enum UserType {
-
-};
+enum UserType { };
 
 }//namespace Settings
 
@@ -47,6 +45,7 @@ enum MenuSettings {
     SETTINGMENU_RADIO_FASTMENUS = 0,
     SETTINGMENU_RADIO_LAYOUT = 1,
     SETTINGMENU_RADIO_MUSIC = 2,
+    SETTINGMENU_RADIO_BRAKEDRIFT = 3,
     SETTINGMENU_SCROLL_BOOT = 0 + 6
 };
 
@@ -101,6 +100,11 @@ enum MenuSettingMusic {
     MENUSETTING_MUSIC_DISABLE_RACE = 0x2
 };
 
+enum MenuSettingBrakeDrift {
+    MENUSETTING_BRAKEDRIFT_DISABLED = 0x0,
+    MENUSETTING_BRAKEDRIFT_ENABLED = 0x1
+};
+
 enum MenuSettingBoot {
     MENUSETTING_BOOT_DISABLED,
     MENUSETTING_BOOT_L1,
@@ -142,6 +146,7 @@ enum RaceSettingSOMDigits {
     HOSTSETTING_SOM_DIGITS_2,
     HOSTSETTING_SOM_DIGITS_3,
 };
+
 
 //HOST SETTINGS
 enum HostSettingHAW {
