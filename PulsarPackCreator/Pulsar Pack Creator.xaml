@@ -289,7 +289,7 @@
                         <TextBlock x:Name="CCMirLabel" Margin="-50,0,0,0" Text="% Mirror" FontSize="14" Foreground="{DynamicResource fg}" Height="21"/>
                     </StackPanel>
 
-                    <TextBlock Text="Wiimmfi Region" Grid.Row="3" Grid.Column="1" Margin="1,6,0,0" HorizontalAlignment="Left" Style="{StaticResource Blocks}" />
+                    <TextBlock Text="Wiilink Region" Grid.Row="3" Grid.Column="1" Margin="1,6,0,0" HorizontalAlignment="Left" Style="{StaticResource Blocks}" />
                     <TextBox x:Name="Wiimmfi" Grid.Row="3" Grid.Column="1" Margin="108,3,40,103" Width="50" Height="23" Text="" TextChanged="OnWiimmfiRegionChange" DataObject.Pasting="NumbersOnlyPasting" PreviewTextInput="NumbersOnlyBox"  Style="{StaticResource Boxes}"  />
 
                     <TextBlock Text="Track Blocking" Grid.Row="3" Grid.Column="1" Margin="1,33,0,0" HorizontalAlignment="Left" Style="{StaticResource Blocks}"/>
