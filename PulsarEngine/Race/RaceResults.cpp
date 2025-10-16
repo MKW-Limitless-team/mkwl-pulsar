@@ -3,26 +3,13 @@
 #include <MarioKartWii/Race/RaceData.hpp>
 #include <core/rvl/OS/OS.hpp>
 #include <PulsarSystem.hpp>
+#include <SlotExpansion/CupsConfig.hpp>
 
 namespace Pulsar {
 namespace Race {
 
 // Hook RacedataScenario::UpdatePoints at 0x8052e950
-// This fires ONCE per race, about 3 seconds after the last player finishes
-// Perfect timing: all data is finalized, no need for flags or stage checks
-
-// Simple, safe wchar_t (UTF-16) to ASCII converter (best-effort)
-static void WStrToAscii(const wchar_t* w, char* out, size_t outSize) {
-    if (!out || outSize == 0) return;
-    out[0] = '\0';
-    if (!w) return;
-    size_t j = 0;
-    for (; j + 1 < outSize && w[j] != 0 && j < 10; ++j) {
-        wchar_t c = w[j];
-        if (c >= 32 && c < 127) out[j] = (char)c; else out[j] = '?';
-    }
-    out[j] = '\0';
-}
+// Fires once per race after all players finish, ensuring finalized data
 
 // Original function typedef
 typedef void (*UpdatePoints_t)(RacedataScenario* self);
@@ -44,34 +31,47 @@ static void UpdatePoints_Hook(RacedataScenario* self) {
         return;
     }
     
-    // Log race header with comprehensive settings
-    const RacedataSettings& settings = self->settings;
-    OS::Report("PULSAR: ===== Online VS Race Results =====\n");
-    OS::Report("PULSAR: Course: %u | Engine: %u | Players: %u | Laps: %u | Seed: %08X\n",
-               settings.courseId, settings.engineClass, playerCount, settings.lapCount, settings.randomSeed);
-    OS::Report("PULSAR: GameMode: %u | ItemMode: %u | ModeFlags: %08X\n",
-               settings.gamemode, settings.itemMode, settings.modeFlags);
-    
     // Get Raceinfo for finish times
     Raceinfo* raceinfo = Raceinfo::sInstance;
     if (!raceinfo) {
-        OS::Report("PULSAR: Warning - Raceinfo::sInstance is NULL\n");
+        OS::Report("PULSAR: WL:error message=\"Raceinfo::sInstance is NULL\"\n");
         return;
     }
+    
+    // Get timestamp in milliseconds since boot (server converts to proper timestamp)
+    u64 timestamp_ticks = OS::GetTime();
+    u32 timestamp_ms = OS::TicksToMilliseconds(timestamp_ticks);
+    
+    // Get race settings
+    const RacedataSettings& settings = self->settings;
+    
+    // Determine course/track ID using Pulsar's backwards-compatible ID system
+    // Prefer Pulsar's winning track (PulsarId), fallback to RacedataSettings::courseId
+    u32 courseIdOut = settings.courseId;
+    Pulsar::PulsarId pulsarId = Pulsar::PULSARID_NONE;
+    if (Pulsar::CupsConfig::sInstance) {
+        pulsarId = Pulsar::CupsConfig::sInstance->GetWinning();
+        if (pulsarId != Pulsar::PULSARID_NONE) {
+            courseIdOut = static_cast<u32>(pulsarId);
+        }
+    }
+
+    // Emit race report header with minimal race metadata
+    OS::Report("PULSAR: WL:race_start client_report_version=\"1.0\" timestamp_client_ms=%u player_count=%u course_id=%u\n",
+               timestamp_ms, playerCount, courseIdOut);
     
     // Log results for each player
     for (u8 i = 0; i < playerCount; ++i) {
         RacedataPlayer& rdPlayer = self->players[i];
         
         // Get position (finishPos is set by UpdatePoints)
-        u8 pos = rdPlayer.finishPos;
-        if (pos == 0 || pos > playerCount) {
-            pos = i + 1; // Fallback to player index + 1
+        u8 finishPos = rdPlayer.finishPos;
+        if (finishPos == 0 || finishPos > playerCount) {
+            finishPos = i + 1; // Fallback to player index + 1
         }
         
         // Get finish time from Raceinfo
-        u16 mm = 0, msec = 0; 
-        u8 ss = 0; 
+        u32 finishTimeMs = 0;
         bool hasTime = false;
         
         if (raceinfo->players && raceinfo->players[i]) {
@@ -79,51 +79,36 @@ static void UpdatePoints_Hook(RacedataScenario* self) {
             if (riPlayer->raceFinishTime && riPlayer->raceFinishTime->isActive) {
                 const Timer* t = riPlayer->raceFinishTime;
                 hasTime = true;
-                mm = t->minutes;
-                ss = t->seconds;
-                msec = t->milliseconds;
+                // Convert to milliseconds
+                finishTimeMs = (static_cast<u32>(t->minutes) * 60u + static_cast<u32>(t->seconds)) * 1000u 
+                             + static_cast<u32>(t->milliseconds);
             }
         }
         
-        // Get player name from Mii
-        char name[24];
-        WStrToAscii(rdPlayer.mii.info.name, name, sizeof(name));
-        
         // Get character and vehicle info
-        u8 character = rdPlayer.characterId;
-        u8 vehicle = rdPlayer.kartId;
+        u8 characterId = rdPlayer.characterId;
+        u8 kartId = rdPlayer.kartId;
         
-        // Get player type (real/CPU) and controller
-        u8 playerType = rdPlayer.playerType;
-        u8 controller = rdPlayer.controllerType;
+        // Use player array index as pid (player ID in race session)
+        u32 pid = i;
         
-        // Get team info if teams are enabled
-        u8 team = rdPlayer.team;
-        
-        // Get rating (VR/BR)
-        u16 rating = rdPlayer.rating.points;
-        
-        // Get score/points
-        u16 prevScore = rdPlayer.previousScore;
-        u16 newScore = rdPlayer.score;
-        s16 scoreChange = (s16)newScore - (s16)prevScore;
-        
-        // Log comprehensive result
+        // Emit player data matching client schema
+        // Required: pid; Optional: finish_position, finish_time_ms, character_id, kart_id
         if (hasTime) {
-            OS::Report("PULSAR: Player[%u] pos=%u time=%02u:%02u.%03u name=\"%s\" char=%u veh=%u type=%u ctrl=%u team=%u rating=%u score=%d->%d (%+d)\n",
-                       i, pos, mm, ss, msec, name, character, vehicle, playerType, controller, team, rating, prevScore, newScore, scoreChange);
+            OS::Report("PULSAR: WL:player pid=%u finish_position=%u finish_time_ms=%u character_id=%u kart_id=%u\n",
+                       pid, finishPos, finishTimeMs, characterId, kartId);
         } else {
-            OS::Report("PULSAR: Player[%u] pos=%u time=DNF name=\"%s\" char=%u veh=%u type=%u ctrl=%u team=%u rating=%u score=%d->%d (%+d)\n",
-                       i, pos, name, character, vehicle, playerType, controller, team, rating, prevScore, newScore, scoreChange);
+            // DNF - omit finish_time_ms (server interprets as DNF)
+            OS::Report("PULSAR: WL:player pid=%u finish_position=%u character_id=%u kart_id=%u\n",
+                       pid, finishPos, characterId, kartId);
         }
     }
     
-    OS::Report("PULSAR: ===== End Race Results =====\n");
+    OS::Report("PULSAR: WL:race_end\n");
 }
 
 // Hook the bl instruction at 0x803a7724 that calls RacedataScenario::UpdatePoints
-// This is inside a function called from the leaderboard update (0x8085c878 -> 0x803a769c -> 0x803a7724)
-// Using kmCall because this is a bl (branch and link) instruction, not a function entry point
+// This is inside a function called from the leaderboard update
 kmCall(0x803a7724, UpdatePoints_Hook);
 
 } // namespace Race
