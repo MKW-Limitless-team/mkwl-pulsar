@@ -27,7 +27,7 @@ void DisplayCorrectLap(AnmTexPatHolder* texPat) { //This Anm is held by a ModelD
 kmCall(0x80723d70, DisplayCorrectLap);
 
 
-//kmWrite32(0x808b5cd8, 0x3F800000); //change 100cc speed ratio to 1.0    
+kmWrite32(0x808b5cd8, 0x3F800000); //change 100cc speed ratio to 1.0    
 Kart::Stats* ApplySpeedModifier(KartId kartId, CharacterId characterId) {
     union SpeedModConv {
         float speedMod;
