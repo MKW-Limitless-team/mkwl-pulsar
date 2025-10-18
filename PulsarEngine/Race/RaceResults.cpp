@@ -12,16 +12,14 @@ namespace Race {
 // Fires once per race after all players finish, ensuring finalized data
 
 // Original function typedef
-typedef void (*UpdatePoints_t)(RacedataScenario* self);
-static const UpdatePoints_t UpdatePoints_orig = (UpdatePoints_t)0x8052e950;
-
 static void UpdatePoints_Hook(RacedataScenario* self) {
     // Call original function first
-    UpdatePoints_orig(self);
+    self->UpdatePoints();
     
     // Only log for online VS races (MODE_PRIVATE_VS=6 or MODE_PUBLIC_VS=7)
     GameMode mode = self->settings.gamemode;
     if (mode != MODE_PRIVATE_VS && mode != MODE_PUBLIC_VS) {
+        OS::Report("PULSAR: WL:error message=\"Not an online race\"\n");
         return;
     }
     
