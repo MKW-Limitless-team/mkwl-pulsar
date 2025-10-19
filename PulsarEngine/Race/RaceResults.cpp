@@ -1,8 +1,17 @@
 #include <kamek.hpp>
 #include <MarioKartWii/Race/Raceinfo/Raceinfo.hpp>
 #include <MarioKartWii/Race/RaceData.hpp>
+#include <MarioKartWii/RKNet/RKNetController.hpp>
 #include <core/rvl/OS/OS.hpp>
 #include <Network/GPReport.hpp>
+
+// DWCi declarations for node info
+struct DWCiNodeInfo {
+    u32 profileId;
+    u8 unknown[0x30 - 0x4];
+};
+
+extern "C" DWCiNodeInfo* DWCi_NodeInfoList_GetNodeInfoForAid(u8 playerAid);
 
 namespace Pulsar {
 namespace Race {
@@ -36,19 +45,27 @@ static void UpdatePoints_Hook() {
         return;
     }
     
-    // Get timestamp in milliseconds since boot (server converts to proper timestamp)
-    u32 timestamp_ms = OS::TicksToMilliseconds(OS::GetTime());
+    // Get local player ID to report only our own result
+    u8 localPlayerId = 0;
+    if (RKNet::Controller::sInstance) {
+        u8 localAid = RKNet::Controller::sInstance->subs[RKNet::Controller::sInstance->currentSub].localAid;
+        for (u8 pid = 0; pid < 12; ++pid) {
+            if (RKNet::Controller::sInstance->aidsBelongingToPlayerIds[pid] == localAid) {
+                localPlayerId = pid;
+                break;
+            }
+        }
+    }
     
-    // Build JSON matching server schema
+    // Build JSON matching server schema (only for local player)
     char reportJson[4096];
-    int pos = snprintf(reportJson, sizeof(reportJson), "{\"client_report_version\":\"1.0\",\"timestamp_client\":\"%u\",\"players\":[",
-                       timestamp_ms);
+    int pos = snprintf(reportJson, sizeof(reportJson), "{\"client_report_version\":\"1.0\",\"player\":");
     if (pos < 0) return;
 
-    for (u8 i = 0; i < playerCount; ++i) {
+    // Only process the local player
+    u8 i = localPlayerId;
+    {
         RacedataPlayer& rdPlayer = racesscenario.players[i];
-        u8 finishPos = rdPlayer.finishPos;
-        if (finishPos == 0 || finishPos > playerCount) finishPos = i + 1;
 
         bool hasTime = false;
         u32 finishTime = 0;
@@ -61,26 +78,32 @@ static void UpdatePoints_Hook() {
             }
         }
 
-        u32 pid = i;
+        // Resolve an authoritative profile id (pid) when possible.
+        u32 pid = 0;
+        if (RKNet::Controller::sInstance) {
+            // Map player index -> aid
+            u8 aid = RKNet::Controller::sInstance->aidsBelongingToPlayerIds[i];
+            DWCiNodeInfo* nodeInfo = DWCi_NodeInfoList_GetNodeInfoForAid(aid);
+            if (nodeInfo) {
+                pid = nodeInfo->profileId;
+            }
+        }
+        
         u32 character = static_cast<u32>(rdPlayer.characterId);
         u32 kart = static_cast<u32>(rdPlayer.kartId);
 
-        if (i != 0) {
-            snprintf(reportJson + strlen(reportJson), sizeof(reportJson) - strlen(reportJson), ",");
-        }
-
         if (hasTime) {
             snprintf(reportJson + strlen(reportJson), sizeof(reportJson) - strlen(reportJson),
-                     "{\"pid\":%u,\"finish_position\":%u,\"finish_time_ms\":%u,\"character_id\":%u,\"kart_id\":%u}",
-                     pid, static_cast<u32>(finishPos), finishTime, character, kart);
+                     "{\"pid\":%u,\"finish_time_ms\":%u,\"character_id\":%u,\"kart_id\":%u",
+                     pid, finishTime, character, kart);
         } else {
             snprintf(reportJson + strlen(reportJson), sizeof(reportJson) - strlen(reportJson),
-                     "{\"pid\":%u,\"finish_position\":%u,\"finish_time_ms\":null,\"character_id\":%u,\"kart_id\":%u}",
-                     pid, static_cast<u32>(finishPos), character, kart);
+                     "{\"pid\":%u,\"finish_time_ms\":null,\"character_id\":%u,\"kart_id\":%u",
+                     pid, character, kart);
         }
     }
 
-    snprintf(reportJson + strlen(reportJson), sizeof(reportJson) - strlen(reportJson), "]}");
+    snprintf(reportJson + strlen(reportJson), sizeof(reportJson) - strlen(reportJson), "}}");
 
     // Send under the key the server expects
     Network::Report("wl:mkw_race_result", reportJson);

@@ -449,6 +449,7 @@ GetBodyAll__5NHTTPFPQ25NHTTP3ResPPc = 0x801d937c
 
 #WiiLink
 Real_DWCi_Auth_SendRequest = 0x800ed6ec
+DWCi_NodeInfoList_GetNodeInfoForAid = 0x800E7EE0
 s_auth_work = 0x8038633c
 s_auth_error = 0x802f1cB8
 WWFC_CUSTOM_REGION = 0x80005efc
