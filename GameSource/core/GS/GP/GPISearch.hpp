@@ -6,8 +6,7 @@
 
 namespace GP {
 
-extern const char searchMgrURL; //8027bee8 GPSP search profile
-}//namespace GP
-
+extern const char searchMgrURL;  // 8027bee8 GPSP search profile
+}  // namespace GP
 
 #endif

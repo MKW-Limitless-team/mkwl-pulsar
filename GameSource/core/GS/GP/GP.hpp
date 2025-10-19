@@ -3,9 +3,8 @@
 #include <types.hpp>
 #include <core/GS/GP/GPTypes.hpp>
 
-//GameSpy presence & messaging
+// GameSpy presence & messaging
 namespace GP {
-}//namespace GP
-
+}  // namespace GP
 
 #endif

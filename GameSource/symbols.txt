@@ -146,6 +146,7 @@ Patch_HostHeader = 0x800ed868
 loginRegion__3DWC = 0x80384fd0
 DWC_AuthServer = 0x80386338
 authServer__3DWC = 0x80386338 
+sInstance__Q23DWC12MatchControl = 0x8038630C
 
 #GHTTP
 PostAddFileFromMemoryA__5GHTTPFPPQ25GHTTP7GHIPostPCcPCviPCcPCc = 0x80113944
@@ -1891,5 +1892,7 @@ NHTTPGetResultCode = 0x801d6300
 NHTTPGetBodyLength = 0x801d6400
 NHTTPGetBody = 0x801d6500
 NHTTPGetAllResponseHeaders = 0x801d6600
+
+gpiAppendStringToBuffer__2GPFPPQ22GP10ConnectionPQ22GP7IBufferPCc = 0x800ff014
 
 
