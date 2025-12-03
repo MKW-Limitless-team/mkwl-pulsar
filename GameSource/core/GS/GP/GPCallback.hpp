@@ -35,7 +35,6 @@ enum IAddCallbackType {
     GPI_NUM_ADD_CALLBACK_TYPES
 };
 
-}//namespace GP
-
+}  // namespace GP
 
 #endif

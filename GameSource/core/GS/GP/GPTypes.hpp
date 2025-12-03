@@ -1,5 +1,6 @@
 #ifndef _GPTYPES_
 #define _GPTYPES_
+#include <include/c_stdlib.h>
 #include <types.hpp>
 #include <core/GS/DArray.h>
 #include <core/GS/GT2/GT2Core.hpp>
@@ -31,6 +32,13 @@ struct IOperation {
     IOperation* next;
 };
 
+typedef struct {
+    u8 _0x000[0x210 - 0x000];
+    IBuffer outputBuffer;
+    u8 _0x220[0x5E0 - 0x220];
+    IBuffer updateproBuffer;
+} IConnection;
+
 struct Connection {
     char errorString[256];
     BOOL infoCaching;
@@ -53,7 +61,7 @@ struct Connection {
     int inputBufferSize;
     IBuffer outputBuffer;
     // Replaced by UDP Layer
-    //SOCKET peerSocket;
+    // SOCKET peerSocket;
     char header[16];
     unsigned short peerPort;
     int nextOperationID;
@@ -96,7 +104,7 @@ struct Connection {
     Enum quietModeFlags;
     u32 gsi_time_kaTransmit;
 
-}; //0x634
+};  // 0x634
 
 struct UniqueMatch {
     int pid;
@@ -109,7 +117,6 @@ struct GetReverseBuddiesListResponseArg {
     UniqueMatch* matches;
 };
 
-}//namespace GP
-
+}  // namespace GP
 
 #endif

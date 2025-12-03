@@ -12,7 +12,7 @@ enum Result {
 };
 
 enum Enum {
-    //Callbacks
+    // Callbacks
     GP_ERROR = 0,
     GP_RECV_BUDDY_REQUEST,
     GP_RECV_BUDDY_STATUS,
@@ -20,7 +20,7 @@ enum Enum {
     GP_RECV_GAME_INVITE,
     GP_TRANSFER_CALLBACK,
 
-    //Global States.
+    // Global States.
     GP_INFO_CACHING = 0x0100,
     GP_SIMULATION,
     GP_INFO_CACHING_BUDDY_ONLY,
@@ -35,20 +35,20 @@ enum Enum {
     GP_CHECK_CACHE = 1,
     GP_DONT_CHECK_CACHE = 0,
 
-    //Fatal Error.
+    // Fatal Error.
     GP_FATAL = 1,
     GP_NON_FATAL = 0,
 
-    //Sex
+    // Sex
     GP_MALE = 0x0500,
     GP_FEMALE,
     GP_PAT,
 
-    //Profile Search.
+    // Profile Search.
     GP_MORE = 0x0600,
     GP_DONE,
 
-    //Set Info
+    // Set Info
     GP_NICK = 0x0700,
     GP_UNIQUENICK,
     GP_EMAIL,
@@ -81,15 +81,15 @@ enum Enum {
     GP_CHILDCOUNT,
     GP_INTERESTS1,
 
-    //New Profile.
+    // New Profile.
     GP_REPLACE = 1,
     GP_DONT_REPLACE = 0,
 
-    //Is Connected.
+    // Is Connected.
     GP_CONNECTED = 1,
     GP_NOT_CONNECTED = 0,
 
-    //Public mask.
+    // Public mask.
     GP_MASK_NONE = 0x00000000,
     GP_MASK_HOMEPAGE = 0x00000001,
     GP_MASK_ZIPCODE = 0x00000002,
@@ -99,7 +99,7 @@ enum Enum {
     GP_MASK_EMAIL = 0x00000020,
     GP_MASK_ALL = 0xFFFFFFFF,
 
-    //Status
+    // Status
     GP_OFFLINE = 0,
     GP_ONLINE = 1,
     GP_PLAYING = 2,
@@ -107,10 +107,10 @@ enum Enum {
     GP_CHATTING = 4,
     GP_AWAY = 5,
 
-    //CPU Brand
+    // CPU Brand
     GP_INTEL = 1,
 
-    //Connection ID.
+    // Connection ID.
     GP_MODEM = 1,
     GP_ISDN,
     GP_CABLEMODEM,
@@ -119,16 +119,16 @@ enum Enum {
     GP_ETHERNET,
     GP_WIRELESS,
 
-    //Transfer callback type.
+    // Transfer callback type.
     GP_TRANSFER_SEND_REQUEST = 0x800,  // arg->num == numFiles
     GP_TRANSFER_ACCEPTED,
-    GP_TRANSFER_REJECTED,        // ***
-    GP_TRANSFER_NOT_ACCEPTING,   // ***
-    GP_TRANSFER_NO_CONNECTION,   // ***
-    GP_TRANSFER_DONE,            // ***
-    GP_TRANSFER_CANCELLED,       // ***
-    GP_TRANSFER_LOST_CONNECTION, // ***
-    GP_TRANSFER_ERROR,           // ***
+    GP_TRANSFER_REJECTED,  // ***
+    GP_TRANSFER_NOT_ACCEPTING,  // ***
+    GP_TRANSFER_NO_CONNECTION,  // ***
+    GP_TRANSFER_DONE,  // ***
+    GP_TRANSFER_CANCELLED,  // ***
+    GP_TRANSFER_LOST_CONNECTION,  // ***
+    GP_TRANSFER_ERROR,  // ***
     GP_TRANSFER_THROTTLE,  // arg->num == Bps
     GP_FILE_BEGIN,
     GP_FILE_PROGRESS,  // arg->num == numBytes
@@ -137,18 +137,18 @@ enum Enum {
     GP_FILE_SKIP,
     GP_FILE_FAILED,  // arg->num == error
 
-    //GP_FILE_FAILED error
+    // GP_FILE_FAILED error
     GP_FILE_READ_ERROR = 0x900,
     GP_FILE_WRITE_ERROR,
     GP_FILE_DATA_ERROR,
 
-    //Transfer Side.
+    // Transfer Side.
     GP_TRANSFER_SENDER = 0xA00,
     GP_TRANSFER_RECEIVER
 };
 
 enum ErrorCode {
-    //General.
+    // General.
     GP_GENERAL = 0x0000,
     GP_PARSE,
     GP_NOT_LOGGED_IN,
@@ -159,7 +159,7 @@ enum ErrorCode {
     GP_CONNECTION_CLOSED,
     GP_UDP_LAYER,
 
-    //Login
+    // Login
     GP_LOGIN = 0x0100,
     GP_LOGIN_TIMEOUT,
 
@@ -173,86 +173,86 @@ enum ErrorCode {
     GP_LOGIN_BAD_UNIQUENICK,
     GP_LOGIN_BAD_PREAUTH,
 
-    //Newuser
+    // Newuser
     GP_NEWUSER = 0x0200,
     GP_NEWUSER_BAD_NICK,
     GP_NEWUSER_BAD_PASSWORD,
     GP_NEWUSER_UNIQUENICK_INVALID,
     GP_NEWUSER_UNIQUENICK_INUSE,
 
-    //Updateui
+    // Updateui
     GP_UPDATEUI = 0x0300,
     GP_UPDATEUI_BAD_EMAIL,
 
-    //Newprofile
+    // Newprofile
     GP_NEWPROFILE = 0x0400,
     GP_NEWPROFILE_BAD_NICK,
     GP_NEWPROFILE_BAD_OLD_NICK,
 
-    //Updatepro
+    // Updatepro
     GP_UPDATEPRO = 0x0500,
     GP_UPDATEPRO_BAD_NICK,
 
-    //Addbuddy
+    // Addbuddy
     GP_ADDBUDDY = 0x0600,
     GP_ADDBUDDY_BAD_FROM,
     GP_ADDBUDDY_BAD_NEW,
     GP_ADDBUDDY_ALREADY_BUDDY,
 
-    //Authadd
+    // Authadd
     GP_AUTHADD = 0x0700,
     GP_AUTHADD_BAD_FROM,
     GP_AUTHADD_BAD_SIG,
 
-    //Status
+    // Status
     GP_STATUS = 0x0800,
 
-    //Bm
+    // Bm
     GP_BM = 0x0900,
     GP_BM_NOT_BUDDY,
     GP_BM_EXT_INFO_NOT_SUPPORTED,
     GP_BM_BUDDY_OFFLINE,
 
-    //Getprofile
+    // Getprofile
     GP_GETPROFILE = 0x0A00,
     GP_GETPROFILE_BAD_PROFILE,
 
-    //Delbuddy
+    // Delbuddy
     GP_DELBUDDY = 0x0B00,
     GP_DELBUDDY_NOT_BUDDY,
 
-    //Delprofile
+    // Delprofile
     GP_DELPROFILE = 0x0C00,
     GP_DELPROFILE_LAST_PROFILE,
 
-    //Search
+    // Search
     GP_SEARCH = 0x0D00,
     GP_SEARCH_CONNECTION_FAILED,
     GP_SEARCH_TIMED_OUT,
 
-    //Check
+    // Check
     GP_CHECK = 0x0E00,
     GP_CHECK_BAD_EMAIL,
     GP_CHECK_BAD_NICK,
     GP_CHECK_BAD_PASSWORD,
 
-    //Revoke
+    // Revoke
     GP_REVOKE = 0x0F00,
     GP_REVOKE_NOT_BUDDY,
 
-    //Registeruniquenick
+    // Registeruniquenick
     GP_REGISTERUNIQUENICK = 0x1000,
     GP_REGISTERUNIQUENICK_TAKEN,
     GP_REGISTERUNIQUENICK_RESERVED,
     GP_REGISTERUNIQUENICK_BAD_NAMESPACE,
 
-    //Register cdkey
+    // Register cdkey
     GP_REGISTERCDKEY = 0x1100,
     GP_REGISTERCDKEY_BAD_KEY,
     GP_REGISTERCDKEY_ALREADY_SET,
     GP_REGISTERCDKEY_ALREADY_TAKEN,
 
-    //AddBlock
+    // AddBlock
     GP_ADDBLOCK = 0x1200,
     GP_ADDBLOCK_ALREADY_BLOCKED,
 
@@ -262,7 +262,6 @@ enum ErrorCode {
 
 };
 
-}//namespace GP
-
+}  // namespace GP
 
 #endif

@@ -18,7 +18,6 @@ struct IConnectData {
 Result iAddOperation(Connection* connection, int type, void* data, IOperation** op, Enum blocking, Callback callback, void* param);
 
 void iRemoveOperation(Connection* connection, IOperation* operation);
-}//namespace GP
-
+}  // namespace GP
 
 #endif

@@ -17,7 +17,6 @@ namespace Network {
 static void ConvertROOMPacketToData(const PulROOM& packet) {
     System* system = System::sInstance;
     system->netMgr.hostContext = packet.hostSystemContext;
-    system->netMgr.hostContext2 = packet.hostSystemContext2;
     system->netMgr.racesPerGP = packet.raceCount;
 }
 
@@ -45,22 +44,25 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
         u8 raceCount;
         if (koSetting == KOSETTING_ENABLED) raceCount = 0xFE;
         else switch (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_SCROLL_GP_RACES)) {
-        case(0x2):
+        case(0):  // HOSTSETTING_GP_RACES_4
+            raceCount = 3;
+            break;
+        case(1):  // HOSTSETTING_GP_RACES_8
             raceCount = 7;
             break;
-        case(0x4):
+        case(2):  // HOSTSETTING_GP_RACES_12
             raceCount = 11;
             break;
-        case(0x6):
+        case(3):  // HOSTSETTING_GP_RACES_24
             raceCount = 23;
             break;
-        case(0x8):
+        case(4):  // HOSTSETTING_GP_RACES_32
             raceCount = 31;
             break;
-        case(0xA):
+        case(5):  // HOSTSETTING_GP_RACES_64
             raceCount = 63;
             break;
-        case(0xC):
+        case(6):  // HOSTSETTING_GP_RACES_2
             raceCount = 1;
             break;
         default:

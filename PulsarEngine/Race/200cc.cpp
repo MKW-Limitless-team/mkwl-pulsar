@@ -2,8 +2,12 @@
 #include <MarioKartWii/Kart/KartManager.hpp>
 #include <MarioKartWii/Effect/EffectMgr.hpp> 
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
+#include <MarioKartWii/Race/Racedata.hpp>
+#include <MarioKartWii/RKNet/RKNetController.hpp>
 #include <Race/200ccParams.hpp>
 #include <PulsarSystem.hpp>
+#include <Settings/Settings.hpp>
+#include <Settings/SettingsParam.hpp>
 
 //Unoptimized code which is mostly a port of Stebler's version which itself comes from CTGP's, speed factor is in the LapSpeedModifier code
 
@@ -12,15 +16,27 @@ namespace Pulsar {
 namespace Race {
 
 static void CannonExitSpeed() {
-    const float ratio = System::sInstance->IsContext(PULSAR_200) ? cannonExit : 1.0f;
+    // Ported from Retro Rewind: Gate 200cc behavior to not apply in Worldwide rooms
+    bool is200 = Racedata::sInstance->racesScenario.settings.engineClass == CC_100 && RKNet::Controller::sInstance->roomType != RKNet::ROOMTYPE_VS_WW;
+    const float ratio = is200 ? cannonExit : 1.0f;
     register Kart::Movement* kartMovement;
     asm(mr kartMovement, r30;);
     kartMovement->engineSpeed = kartMovement->baseSpeed * ratio;
 }
 kmCall(0x805850c8, CannonExitSpeed);
 
+static bool IsBrakeDriftAllowedContext() {
+    System* system = System::sInstance;
+    // Ported from Retro Rewind: Gate 200cc behavior to not apply in Worldwide rooms
+    const RacedataSettings& rs = Racedata::sInstance->racesScenario.settings;
+    bool is200 = rs.engineClass == CC_100 && RKNet::Controller::sInstance->roomType != RKNet::ROOMTYPE_VS_WW;
+    if(is200) return true; // always on in 200cc
+    if(rs.engineClass != CC_150) return false; // only allow 150cc when enabled
+    return Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_MENU, SETTINGMENU_RADIO_BRAKEDRIFT) == MENUSETTING_BRAKEDRIFT_ENABLED;
+}
+
 void EnableBrakeDrifting(Input::ControllerHolder& controllerHolder) {
-    if(System::sInstance->IsContext(PULSAR_200)) {
+    if(IsBrakeDriftAllowedContext()) {
         const ControllerType controllerType = controllerHolder.curController->GetType();
         const u16 inputs = controllerHolder.inputStates[0].buttonRaw;
         u16 inputsMask = 0x700;
@@ -60,7 +76,7 @@ kmCall(0x80521828, FixGhostBrakeDrifting);
 
 
 bool IsBrakeDrifting(const Kart::Status& status) {
-    if(System::sInstance->IsContext(PULSAR_200)) {
+    if(IsBrakeDriftAllowedContext()) {
         u32 bitfield0 = status.bitfield0;
         const Input::ControllerHolder& controllerHolder = status.link->GetControllerHolder();
         if((bitfield0 & 0x40000) != 0 && (bitfield0 & 0x1F) == 0xF && (bitfield0 & 0x80100000) == 0
@@ -103,7 +119,7 @@ kmCall(0x806faff8, BrakeDriftingSoundWrapper);
 kmWrite32(0x80698f88, 0x60000000);
 static int BrakeEffectBikes(Effects::Player& effects) {
     const Kart::Player* kartPlayer = effects.kartPlayer;
-    if(System::sInstance->IsContext(PULSAR_200)) {
+    if(IsBrakeDriftAllowedContext()) {
         if(IsBrakeDrifting(*kartPlayer->pointers.kartStatus)) effects.CreateAndUpdateEffectsByIdxVelocity(effects.bikeDriftEffects, 25, 26, 1);
         else effects.FollowFadeEffectsByIdxVelocity(effects.bikeDriftEffects, 25, 26, 1);
     }
@@ -114,7 +130,7 @@ kmCall(0x80698f8c, BrakeEffectBikes);
 kmWrite32(0x80698048, 0x60000000);
 static int BrakeEffectKarts(Effects::Player& effects) {
     Kart::Player* kartPlayer = effects.kartPlayer;
-    if(System::sInstance->IsContext(PULSAR_200)) {
+    if(IsBrakeDriftAllowedContext()) {
         if(IsBrakeDrifting(*kartPlayer->pointers.kartStatus)) effects.CreateAndUpdateEffectsByIdxVelocity(effects.kartDriftEffects, 34, 36, 1);
         else effects.FollowFadeEffectsByIdxVelocity(effects.kartDriftEffects, 34, 36, 1);
     }
@@ -124,7 +140,9 @@ kmCall(0x8069804c, BrakeEffectKarts);
 
 
 static void FastFallingBody(Kart::Status& status, Kart::Physics& physics) { //weird thing 0x96 padding byte used
-    if(System::sInstance->IsContext(PULSAR_200)) {
+    // Ported from Retro Rewind: Gate 200cc behavior to not apply in Worldwide rooms
+    bool is200 = Racedata::sInstance->racesScenario.settings.engineClass == CC_100 && RKNet::Controller::sInstance->roomType != RKNet::ROOMTYPE_VS_WW;
+    if(is200) {
         if((status.airtime >= 2) && (!status.bool_0x96 || (status.airtime > 19))) {
             Input::ControllerHolder& controllerHolder = status.link->GetControllerHolder();
             float input = controllerHolder.inputStates[0].stick.z <= 0.0f ? 0.0f :
@@ -140,7 +158,9 @@ kmCall(0x805967a4, FastFallingBody);
 kmWrite32(0x8059739c, 0x38A10014); //addi r5, sp, 0x14 to align with the Vec3 on the stack
 static Kart::WheelPhysicsHolder& FastFallingWheels(Kart::Sub& sub, u8 wheelIdx, Vec3& gravityVector) { //weird thing 0x96 status
     float gravity = -1.3f;
-    if(System::sInstance->IsContext(PULSAR_200)) {
+    // Ported from Retro Rewind: Gate 200cc behavior to not apply in Worldwide rooms
+    bool is200 = Racedata::sInstance->racesScenario.settings.engineClass == CC_100 && RKNet::Controller::sInstance->roomType != RKNet::ROOMTYPE_VS_WW;
+    if(is200) {
         Kart::Status* status = sub.kartStatus;
         if(status->airtime == 0) status->bool_0x96 = ((status->bitfield0 & 0x80) != 0) ? true : false;
         else if((status->airtime >= 2) && (!status->bool_0x96 || (status->airtime > 19))) {
