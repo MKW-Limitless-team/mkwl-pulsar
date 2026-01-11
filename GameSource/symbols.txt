@@ -1897,3 +1897,6 @@ NHTTPGetAllResponseHeaders = 0x801d6600
 gpiAppendStringToBuffer__2GPFPPQ22GP10ConnectionPQ22GP7IBufferPCc = 0x800ff014
 
 
+#KMP AREA
+GetPhysics__Q24Kart4LinkFv = 0x805903cc
+Update__Q24Kart7PhysicsFbff = 0x805b5170
