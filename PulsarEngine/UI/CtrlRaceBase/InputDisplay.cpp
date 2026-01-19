@@ -17,7 +17,7 @@ namespace UI {
 const s8 CtrlRaceInputViewer::DPAD_HOLD_FOR_N_FRAMES = 10;
 void CtrlRaceInputViewer::Init() {
     char name[32];
-    bool isBrakedriftToggled = System::sInstance->IsContext(PULSAR_200);
+    bool isBrakedriftToggled = true;
     RacedataScenario& raceScenario = Racedata::sInstance->racesScenario;
     
     for (int i = 0; i < (int)DpadState_Count; ++i) {
@@ -103,17 +103,15 @@ void CtrlRaceInputViewer::OnUpdate() {
             
             bool accel = input->buttonActions & 0x1;
             bool L = input->buttonActions & 0x4;
-            bool R = (input->buttonActions & 0x8) || (input->buttonActions & 0x2);
+            bool R = input->buttonActions & 0x8;
+            bool BD = input->buttonActions & 0x10;
+
             setDpad(dpadState);
             setAccel(accel ? AccelState_Pressed : AccelState_Off);
             setTrigger(Trigger_L, L ? TriggerState_Pressed : TriggerState_Off);
             setTrigger(Trigger_R, R ? TriggerState_Pressed : TriggerState_Off);
             setStick(stick);
-            bool isBrakedriftToggled = System::sInstance->IsContext(PULSAR_200);
-            if (isBrakedriftToggled) {
-                bool BD = input->buttonActions & 0x2;
-                setTrigger(Trigger_BD, BD ? TriggerState_Pressed : TriggerState_Off);
-            }
+            setTrigger(Trigger_BD, BD ? TriggerState_Pressed : TriggerState_Off);
         }
     }
 }
