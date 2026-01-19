@@ -32,7 +32,7 @@ static bool IsBrakeDriftAllowedContext() {
     bool is200 = rs.engineClass == CC_100 && RKNet::Controller::sInstance->roomType != RKNet::ROOMTYPE_VS_WW;
     if(is200) return true; // always on in 200cc
     if(rs.engineClass != CC_150) return false; // only allow 150cc when enabled
-    return Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_MENU, SETTINGMENU_RADIO_BRAKEDRIFT) == MENUSETTING_BRAKEDRIFT_ENABLED;
+    return true;
 }
 
 void EnableBrakeDrifting(Input::ControllerHolder& controllerHolder) {
