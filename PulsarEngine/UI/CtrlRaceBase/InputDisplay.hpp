@@ -68,6 +68,8 @@ private:
     void setAccel(AccelState state);
     void setTrigger(Trigger trigger, TriggerState state);
     void setStick(Vec2 state);
+    void SetButtonGradient(nw4r::lyt::Pane* pane, u32 startColor, u32 endColor);
+    void ApplyButtonColours();
 private:
     nw4r::lyt::Pane* m_dpadPanes[(int)DpadState_Count];
     nw4r::lyt::Pane* m_accelPanes[(int)AccelState_Count];

@@ -69,7 +69,7 @@ void CtrlRaceInputViewer::Init() {
                 this->SetPaneVisibility(name, false);
             }
             this->m_triggerPanes[i][j] = pane;
-            
+
             this->HudSlotColorEnable(name, true);
         }
     }
@@ -77,8 +77,11 @@ void CtrlRaceInputViewer::Init() {
     this->m_stickPane = this->layout.GetPaneByName("Stick");
     this->m_stickOrigin = this->m_stickPane->trans;
     this->m_playerId = this->GetPlayerId();
+
     this->HudSlotColorEnable("Stick", true);
     this->HudSlotColorEnable("StickBackdrop", true);
+
+    this->ApplyButtonColours();
 
     LayoutUIControl::Init();
 }
@@ -217,6 +220,53 @@ void CtrlRaceInputViewer::setStick(Vec2 state) {
     m_stickPane->trans.y =
             m_stickOrigin.y + scale * state.z * m_stickPane->scale.z * m_stickPane->size.z;
     m_stickState = state;
+}
+
+void CtrlRaceInputViewer::SetButtonGradient(nw4r::lyt::Pane* pane,
+                                                 u32 startColour,
+                                                 u32 endColour) {
+    nw4r::lyt::Picture* pic = reinterpret_cast<nw4r::lyt::Picture*>(pane);
+
+    // Set vertical gradient (top to bottom)
+    // Vertex layout for a quad:
+    // 0 (top-left)    1 (top-right)    <- Both top vertices: start colour
+    // 3 (bottom-left) 2 (bottom-right)  <- Both bottom vertices: end colour
+
+    pic->vertexColours[0] = startColour;  // Top-left: start colour
+    pic->vertexColours[1] = startColour;  // Top-right: start colour
+    pic->vertexColours[2] = endColour;    // Bottom-right: end colour
+    pic->vertexColours[3] = endColour;    // Bottom-left: end colour
+}
+
+void CtrlRaceInputViewer::ApplyButtonColours() {
+    // Centralised method for applying colours to all buttons
+    // Purple gradient colours
+    const u32 startColour = 0x1b28e7ff;  // #1b28e7 (top colour)
+    const u32 endColour = 0xdb62ddff;    // #db62dd (bottom colour)
+
+    // Apply vertical gradient to all acceleration button states
+    for (int i = 0; i < (int)AccelState_Count; ++i) {
+        this->SetButtonGradient(this->m_accelPanes[i], startColour, endColour);
+    }
+
+    // Apply vertical gradient to all trigger button states
+    for (int i = 0; i < (int)Trigger_Count; ++i) {
+        for (int j = 0; j < (int)TriggerState_Count; ++j) {
+            this->SetButtonGradient(this->m_triggerPanes[i][j], startColour, endColour);
+        }
+    }
+
+    // Apply vertical gradient to all dpad button states
+    for (int i = 0; i < (int)DpadState_Count; ++i) {
+        this->SetButtonGradient(this->m_dpadPanes[i], startColour, endColour);
+    }
+
+    // Apply vertical gradient to stick and backdrop
+    this->SetButtonGradient(this->m_stickPane, startColour, endColour);
+    nw4r::lyt::Pane* stickBackdrop = this->layout.GetPaneByName("StickBackdrop");
+    if (stickBackdrop) {
+        this->SetButtonGradient(stickBackdrop, startColour, endColour);
+    }
 }
 }//namespace UI
 }//namespace Pulsar
