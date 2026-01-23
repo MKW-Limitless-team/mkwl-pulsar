@@ -112,7 +112,7 @@ void CtrlRaceInputViewer::OnUpdate() {
             
             bool accel = input->buttonActions & 0x1;
             bool L = input->buttonActions & 0x4;
-            bool R = input->buttonActions & 0x8;
+            bool R = input->buttonActions & 0x2;
             bool BD = input->buttonActions & 0x10;
 
             setDpad(dpadState);
