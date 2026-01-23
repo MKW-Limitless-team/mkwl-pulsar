@@ -1749,6 +1749,7 @@ DeployBlooper__Q24Item8GessoMgrFUs = 0x807a9128
 #ItemSlot
 DecideItem__Q24Item12ItemSlotDataFUsUcbbPQ24Item6Player = 0x807bb42c
 DecideRouletteItem__Q24Item12ItemSlotDataFUsUc6ItemIdb = 0x807bb8d0
+PostProcessVSTable__Q24Item12ItemSlotDataFPQ34Item12ItemSlotData13Probabilities = 0x807bad20
 itemSlotData = 0x809c3670
 
 #Inventory
