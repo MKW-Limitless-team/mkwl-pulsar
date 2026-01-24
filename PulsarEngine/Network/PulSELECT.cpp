@@ -185,7 +185,7 @@ static void DecideCC(ExpSELECTHandler& handler) {
 
     u8 ccClass = 1; //1 100, 2 150, 3 mirror
 
-    if (roomType == RKNet::ROOMTYPE_VS_WW) {
+    if (roomType == RKNet::ROOMTYPE_VS_WW || roomType == RKNet::ROOMTYPE_VS_REGIONAL) {
         // Worldwide logic - forced 150cc to prevent 200cc from taking effect
         ccClass = 2;
     } else if (system->IsContext(PULSAR_CT)) {
