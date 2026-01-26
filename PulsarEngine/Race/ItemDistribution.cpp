@@ -6,56 +6,45 @@
 #include <core/rvl/OS/OS.hpp>
 
 // Hook function to apply room-size-based item distribution
-// This function will be called by the kmBranch hook below
-// Based on the assembly analysis, the scaleTable function has ItemSlotData* as its first parameter (in r3)
-static void ApplyRoomSizeDistributionHook(Item::ItemSlotData* itemSlotData) {
-    OS::Report("ItemDistribution: Hook activated\n");
-
-    // Debug: Show what's in the parameter
-    OS::Report("ItemDistribution: itemSlotData parameter value: 0x%08x\n", reinterpret_cast<u32>(itemSlotData));
-
-    if (!itemSlotData) {
-        OS::Report("ItemDistribution: itemSlotData is null\n");
+static void ApplyRoomSizeDistributionHook(Item::ItemSlotData* itemSlotData, Item::ItemSlotData::Probabilities* probabilities) {
+    if (!itemSlotData || !probabilities || !probabilities->probabilities || probabilities->rowCount == 0) {
+        OS::Report("ItemDistribution: ERROR - Invalid parameters in hook!\n");
         return;
     }
 
-    OS::Report("ItemDistribution: itemSlotData valid, playerChances rowCount=%d\n", itemSlotData->playerChances.rowCount);
-
-    // Apply our room-size-based distribution to player probabilities
     Pulsar::Race::ItemDistributionManager* instance = Pulsar::Race::ItemDistributionManager::GetInstance();
-    if (instance) {
-        OS::Report("ItemDistribution: Instance found, applying distribution\n");
-        // Apply to player probabilities (address 0x10 in ItemSlotData)
-        instance->ApplyRoomSizeDistribution(&itemSlotData->playerChances, true);
-    } else {
-        OS::Report("ItemDistribution: Instance is null, creating it\n");
-        // Debug: Instance is null, try to create it
+    if (!instance) {
         Pulsar::Race::ItemDistributionManager::CreateInstance();
         instance = Pulsar::Race::ItemDistributionManager::GetInstance();
-        if (instance) {
-            OS::Report("ItemDistribution: Instance created, applying distribution\n");
-            instance->ApplyRoomSizeDistribution(&itemSlotData->playerChances, true);
-        } else {
-            OS::Report("ItemDistribution: Failed to create instance\n");
+        if (!instance) {
+            OS::Report("ItemDistribution: ERROR - Failed to create instance!\n");
+            return;
         }
     }
+
+    u32 currentCount = instance->GetCurrentPlayerCount();
+    if (currentCount != itemSlotData->playerCount) {
+        instance->UpdatePlayerCount(itemSlotData->playerCount);
+        OS::Report("ItemDistribution: Player count updated from %d to %d\n", currentCount, itemSlotData->playerCount);
+    }
+
+    instance->ApplyRoomSizeDistribution(probabilities, false);
 }
 
-// Hook the blr instruction at 0x807ba810 where ItemSlotData::CreateInstance() returns
-// At this point, the ItemSlotData::sInstance should be available and valid
-kmBranch(0x807ba810, ApplyRoomSizeDistributionHook);
+// Hook the CALL to PostProcessVSTable
+kmCall(0x807bb5c0, ApplyRoomSizeDistributionHook);
+kmCall(0x807bb1ac, ApplyRoomSizeDistributionHook);
+kmCall(0x807bb0b4, ApplyRoomSizeDistributionHook);
 
 // Create and initialise the ItemDistributionManager when the race loads
 static void InitItemDistribution() {
     Pulsar::Race::ItemDistributionManager::CreateInstance();
 }
 
-// Clean up when the race ends
 static void CleanupItemDistribution() {
     Pulsar::Race::ItemDistributionManager::DestroyInstance();
 }
 
-// Register our init and cleanup functions with the race load hooks
 static RaceLoadHook initItemDistHook(InitItemDistribution);
 static RaceFrameHook cleanupItemDistHook(CleanupItemDistribution);
 
@@ -98,57 +87,76 @@ void ItemDistributionManager::Init() {
         currentPlayerCount = Racedata::sInstance->racesScenario.playerCount;
     }
 
-    // Initialize default distributions
-    InitializeDefaultDistributions();
+    // Load custom item distributions from PULItemSlot.bin file if available
+    hasCustomDistributions = LoadItemDistributionFromFile();
 
     isInitialised = true;
 }
 
-void ItemDistributionManager::InitializeDefaultDistributions() {
-    // Copy the hardcoded distribution table into our configuration
-    for (int roomSizeIndex = 0; roomSizeIndex < 11; roomSizeIndex++) {
-        for (int position = 0; position < 12; position++) {
+void ItemDistributionManager::ApplyRoomSizeDistribution(Item::ItemSlotData::Probabilities* probabilities, bool isPlayerTable) {
+    if (!probabilities || !isInitialised) {
+        OS::Report("ItemDistribution: ERROR - ApplyRoomSizeDistribution called with invalid parameters!\n");
+        return;
+    }
+
+    // Only apply custom distributions if we successfully loaded them
+    if (hasCustomDistributions) {
+        // Convert room size to index (2->0, 3->1, ..., 12->10)
+        int roomSizeIndex = currentPlayerCount - 2;
+
+        // Apply the custom distribution for this room size
+        for (u32 position = 0; position < probabilities->rowCount && position < 12; position++) {
             for (int itemId = 0; itemId < 19; itemId++) {
-                distributionConfig.roomSizes[roomSizeIndex].positions[position].probabilities[itemId] =
-                    DEFAULT_ITEM_DISTRIBUTION_TABLE[roomSizeIndex][position][itemId];
+                u16 prob = distributionConfig.roomSizes[roomSizeIndex][position][itemId];
+                probabilities->probabilities[position * 19 + itemId] = prob;
             }
         }
     }
 }
 
-void ItemDistributionManager::ApplyCustomItemDistribution(Item::ItemSlotData::Probabilities* probabilities, int roomSize) {
-    if (!probabilities || !probabilities->probabilities) return;
-
-    // Convert room size to index (2->0, 3->1, ..., 12->10)
-    int roomSizeIndex = roomSize - 2;
-
-    // Apply the custom distribution for this room size
-    for (u32 position = 0; position < probabilities->rowCount && position < 12; position++) {
-        // Copy probabilities from our configuration to the game's probability table
-        for (int itemId = 0; itemId < 19; itemId++) {
-            probabilities->probabilities[position * 19 + itemId] =
-                distributionConfig.roomSizes[roomSizeIndex].positions[position].probabilities[itemId];
-        }
+bool ItemDistributionManager::LoadItemDistributionFromFile() {
+    // Check if ArchiveMgr is available
+    if (!ArchiveMgr::sInstance) {
+        OS::Report("ItemDistribution: ERROR - ArchiveMgr not available!\n");
+        return false;
     }
+
+    // Try to get the file from CommonAssets archive
+    if (const void* fileData = ArchiveMgr::sInstance->GetFile(ARCHIVE_HOLDER_COMMON, "PULItemSlot.bin")) {
+        // Parse the file directly from the archive
+        ParsePULItemSlotFile(static_cast<const u8*>(fileData));
+        return true;
+    }
+
+    OS::Report("ItemDistribution: INFO - PULItemSlot.bin not found, using default distributions\n");
+    return false;
 }
 
-void ItemDistributionManager::ApplyRoomSizeDistribution(Item::ItemSlotData::Probabilities* probabilities, bool isPlayerTable) {
-    OS::Report("ItemDistribution: ApplyRoomSizeDistribution called, isPlayerTable=%d\n", isPlayerTable);
+void ItemDistributionManager::ParsePULItemSlotFile(const u8* fileData) {
+    // PULItemSlot.bin format: 12 tables, each with 12 positions (NUM_POSITIONS) × 19 items (NUM_ITEMS)
+    // Data is stored in column-major order (transposed): [item][position]
 
-    if (!probabilities) {
-        OS::Report("ItemDistribution: probabilities is null\n");
-        return;
+    u8 tableCount = *fileData;
+    const u8* dataPtr = fileData + sizeof(u8);
+
+    // Process each table (tableIdx 0 = 2 players, tableIdx 10 = 12 players)
+    for (u8 tableIdx = 0; tableIdx < tableCount; tableIdx++) {
+        u8 columns = *dataPtr++;  // positions (12)
+        u8 rows = *dataPtr++;     // items (19)
+
+        if (tableIdx < NUM_ROOM_SIZES && rows <= NUM_ITEMS && columns <= NUM_POSITIONS) {
+            const u8* tableData = dataPtr;
+
+            // Convert from file format [item][position] to [position][item]
+            for (u8 item = 0; item < rows; item++) {
+                for (u8 position = 0; position < columns; position++) {
+                    distributionConfig.roomSizes[tableIdx][position][item] = tableData[item * columns + position];
+                }
+            }
+        }
+
+        dataPtr += columns * rows * sizeof(u8);
     }
-
-    if (!isInitialised) {
-        OS::Report("ItemDistribution: Not initialised\n");
-        return;
-    }
-
-    OS::Report("ItemDistribution: Room size=%d\n", currentPlayerCount);
-
-    // Apply custom item distribution based on room size
-    ApplyCustomItemDistribution(probabilities, currentPlayerCount);
 }
 
 
