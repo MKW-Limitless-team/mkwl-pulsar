@@ -2,9 +2,13 @@
 #define PULSAR_ITEM_DISTRIBUTION_HPP
 
 #include <kamek.hpp>
+#include <PulsarSystem.hpp>
 #include <MarioKartWii/Item/ItemSlot.hpp>
 #include <MarioKartWii/System/Identifiers.hpp>
-#include <IO/IO.hpp>
+#include <MarioKartWii/Race/RaceData.hpp>
+#include <MarioKartWii/Item/ItemManager.hpp>
+
+#include <core/rvl/OS/OS.hpp>
 
 namespace Pulsar {
 namespace Race {
@@ -15,38 +19,15 @@ namespace Race {
 #define NUM_ITEMS 19          // Item count
 
 struct ItemDistributionConfig {
-    u16 roomSizes[NUM_ROOM_SIZES][NUM_POSITIONS][NUM_ITEMS]; // [roomSize][position][item] probabilities
+    u8 roomSizes[NUM_ROOM_SIZES][NUM_POSITIONS][NUM_ITEMS]; // [roomSize][position][item] probabilities
 };
 
-class ItemDistributionManager {
-public:
-    static ItemDistributionManager* sInstance;
-    static ItemDistributionManager* CreateInstance();
-    static void DestroyInstance();
-    ItemDistributionManager();
-    ~ItemDistributionManager();
-    void Init();
-    void ApplyRoomSizeDistribution(Item::ItemSlotData::Probabilities* probabilities, bool isPlayerTable);
-    static ItemDistributionManager* GetInstance();
-
-    // Public method to update player count
-    void UpdatePlayerCount(u32 newPlayerCount) {
-        currentPlayerCount = newPlayerCount;
-    }
-
-    // Public method to get current player count
-    u32 GetCurrentPlayerCount() const {
-        return currentPlayerCount;
-    }
-
-private:
-    u32 currentPlayerCount;
-    bool isInitialised;
-    bool hasCustomDistributions;
-    ItemDistributionConfig distributionConfig;
-    bool LoadItemDistributionFromFile();
-    void ParsePULItemSlotFile(const u8* fileData);
-};
+// Function declarations
+void InitItemDistribution();
+void ApplyRoomSizeDistribution(Item::ItemSlotData::Probabilities* probabilities, bool isPlayerTable);
+bool LoadItemDistributionFromFile();
+void ParsePULItemSlotFile(const u8* fileData);
+void InitItemDistributionOnLoad();
 
 } // namespace Race
 } // namespace Pulsar
