@@ -117,14 +117,5 @@ kmCall(0x807bb5c0, ApplyRoomSizeDistributionHook);
 kmCall(0x807bb1ac, ApplyRoomSizeDistributionHook);
 kmCall(0x807bb0b4, ApplyRoomSizeDistributionHook);
 
-// Initialise item distribution when the race loads
-void InitItemDistributionOnLoad() {
-    OS::Report("ItemDistribution: Initialising item distribution on load...\n");
-    InitItemDistribution();
-    OS::Report("ItemDistribution: Item distribution initialised.\n");
-}
-
-RaceLoadHook initItemDistHook(InitItemDistributionOnLoad);
-
 } // namespace Race
 } // namespace Pulsar

@@ -27,8 +27,6 @@ void InitItemDistribution();
 void ApplyRoomSizeDistribution(Item::ItemSlotData::Probabilities* probabilities, bool isPlayerTable);
 bool LoadItemDistributionFromFile();
 void ParsePULItemSlotFile(const u8* fileData);
-void InitItemDistributionOnLoad();
-
 } // namespace Race
 } // namespace Pulsar
 
