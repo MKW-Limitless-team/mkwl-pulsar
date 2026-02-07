@@ -35,7 +35,9 @@ void CtrlRaceInputViewer::Init() {
     // Check if this is a nunchuck controller to handle positioning differently
     const SectionId sectionId = SectionMgr::sInstance->curSection->sectionId;
     const ControllerType controllerType = SectionMgr::sInstance->pad.padInfos[0].controllerHolder->curController->GetType();
-    bool isNunchuck = (controllerType == NUNCHUCK);
+    const int inputSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_MENU, SETTINGMENU_RADIO_INPUT);
+    const bool isGhostRace = (sectionId >= SECTION_WATCH_GHOST_FROM_CHANNEL && sectionId <= SECTION_WATCH_GHOST_FROM_MENU);
+    bool isNunchuck = (controllerType == NUNCHUCK) && !(inputSetting == MENUSETTING_INPUT_FORCED || isGhostRace);
 
     for (int i = 0; i < (int)AccelState_Count; ++i) {
         AccelState state = static_cast<AccelState>(i);
