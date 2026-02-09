@@ -35,9 +35,9 @@ void CtrlRaceInputViewer::Init() {
     // Check if this is a nunchuck controller to handle positioning differently
     const SectionId sectionId = SectionMgr::sInstance->curSection->sectionId;
     const ControllerType controllerType = SectionMgr::sInstance->pad.padInfos[0].controllerHolder->curController->GetType();
-    const int inputSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_MENU, SETTINGMENU_RADIO_INPUT);
+    const int inputSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_RADIO_INPUT);
     const bool isGhostRace = (sectionId >= SECTION_WATCH_GHOST_FROM_CHANNEL && sectionId <= SECTION_WATCH_GHOST_FROM_MENU);
-    bool isNunchuck = (controllerType == NUNCHUCK) && !(inputSetting == MENUSETTING_INPUT_FORCED || isGhostRace);
+    bool isNunchuck = (controllerType == NUNCHUCK) && !(inputSetting == INPUTSETTING_INPUT_FORCED || isGhostRace);
 
     for (int i = 0; i < (int)AccelState_Count; ++i) {
         AccelState state = static_cast<AccelState>(i);
@@ -127,10 +127,10 @@ void CtrlRaceInputViewer::OnUpdate() {
     }
 }
 u32 CtrlRaceInputViewer::Count() {
-    if(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_MENU, SETTINGMENU_RADIO_INPUT) == MENUSETTING_INPUT_DISABLED)
+    if(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_RADIO_INPUT) == INPUTSETTING_INPUT_DISABLED)
         return 0;
-    else if(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_MENU, SETTINGMENU_RADIO_INPUT) == MENUSETTING_INPUT_ENABLED || 
-    Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_MENU, SETTINGMENU_RADIO_INPUT) == MENUSETTING_INPUT_FORCED) {
+    else if(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_RADIO_INPUT) == INPUTSETTING_INPUT_ENABLED || 
+    Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_RADIO_INPUT) == INPUTSETTING_INPUT_FORCED) {
         // Declare and initialize scenario here
         const RacedataScenario& scenario = Racedata::sInstance->racesScenario;
         u32 localPlayerCount = scenario.localPlayerCount;
@@ -162,15 +162,15 @@ void CtrlRaceInputViewer::Load(const char* variant, u8 id) {
 
     const SectionId sectionId = SectionMgr::sInstance->curSection->sectionId;
     const ControllerType controllerType = SectionMgr::sInstance->pad.padInfos[0].controllerHolder->curController->GetType();
-    const int inputSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_MENU, SETTINGMENU_RADIO_INPUT);
+    const int inputSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_RADIO_INPUT);
     const bool isGhostRace = (sectionId >= SECTION_WATCH_GHOST_FROM_CHANNEL && sectionId <= SECTION_WATCH_GHOST_FROM_MENU);
 
-    if (inputSetting == MENUSETTING_INPUT_FORCED || isGhostRace) {
+    if (inputSetting == INPUTSETTING_INPUT_FORCED || isGhostRace) {
         loader.Load(UI::raceFolder, "PULInputViewer", variant, groups);
         return;
     }
 
-    if (controllerType == NUNCHUCK && inputSetting == MENUSETTING_INPUT_ENABLED && !isGhostRace) {
+    if (controllerType == NUNCHUCK && inputSetting == INPUTSETTING_INPUT_ENABLED && !isGhostRace) {
         loader.Load(UI::raceFolder, "PULInputViewerNunchuck", variant, groups);
         return;
     }
@@ -224,50 +224,135 @@ void CtrlRaceInputViewer::setStick(Vec2 state) {
     m_stickState = state;
 }
 
-void CtrlRaceInputViewer::SetButtonGradient(nw4r::lyt::Pane* pane,
-                                                 u32 startColour,
-                                                 u32 endColour) {
+void CtrlRaceInputViewer::SetButtonGradient(nw4r::lyt::Pane* pane, u32 startColour, u32 endColour, Direction direction ) {
     nw4r::lyt::Picture* pic = reinterpret_cast<nw4r::lyt::Picture*>(pane);
-
-    // Set vertical gradient (top to bottom)
+    
     // Vertex layout for a quad:
-    // 0 (top-left)    1 (top-right)    <- Both top vertices: start colour
-    // 3 (bottom-left) 2 (bottom-right)  <- Both bottom vertices: end colour
+    // 0 (top-left)    1 (top-right)    <- Left vertices: start colour
+    // 2 (bottom-left) 3 (bottom-right)  <- Right vertices: end colour
 
-    pic->vertexColours[0] = startColour;  // Top-left: start colour
-    pic->vertexColours[1] = startColour;  // Top-right: start colour
-    pic->vertexColours[2] = endColour;    // Bottom-right: end colour
-    pic->vertexColours[3] = endColour;    // Bottom-left: end colour
+
+    switch (direction)
+    {
+    case Direction_Vertical:
+        pic->vertexColours[0] = startColour;
+        pic->vertexColours[1] = startColour;
+        pic->vertexColours[2] = endColour;
+        pic->vertexColours[3] = endColour;
+        break;
+
+    case Direction_Horizontal:
+        pic->vertexColours[0] = startColour;
+        pic->vertexColours[1] = endColour;
+        pic->vertexColours[2] = startColour;
+        pic->vertexColours[3] = endColour;
+        break;
+        
+    case Direction_Diagonal:
+        pic->vertexColours[0] = startColour;
+        pic->vertexColours[1] = endColour;
+        pic->vertexColours[2] = endColour;
+        pic->vertexColours[3] = startColour;
+        break;
+    
+    default:
+        pic->vertexColours[0] = startColour;
+        pic->vertexColours[1] = startColour;
+        pic->vertexColours[2] = startColour;
+        pic->vertexColours[3] = startColour;
+        break;
+    }
 }
 
 void CtrlRaceInputViewer::ApplyButtonColours() {
-    // Centralised method for applying colours to all buttons
-    // Purple gradient colours
-    const u32 startColour = 0x1b28e7ff;  // #1b28e7 (top colour)
-    const u32 endColour = 0xdb62ddff;    // #db62dd (bottom colour)
+    // Get the current preset setting
+    const int presetSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_RADIO_PRESET);
+    
+    u32 startColour, endColour;
+    Direction direction;
+    
+    // Switch case for different presets
+    switch (presetSetting) {
+        case INPUTSETTING_PRESET_LIMITLESS:
+            startColour = 0x1b28e7ff;  // #1b28e7
+            endColour = 0xdb62ddff;    // #db62dd
+            direction = Direction_Vertical;
+            break;
+            
+        case INPUTSETTING_PRESET_UNLIMITED:
+            startColour = 0xff0000ff;  // #ff0000
+            endColour = 0x420000ff;    // #420000
+            direction = Direction_Diagonal;
+            break;
+            
+        case INPUTSETTING_PRESET_BLAZINGCOLD:
+            startColour = 0xff000099;  // #ff0000
+            endColour = 0x0000ff99;    // #0000ff
+            direction = Direction_Horizontal;
+            break;
 
-    // Apply vertical gradient to all acceleration button states
-    for (int i = 0; i < (int)AccelState_Count; ++i) {
-        this->SetButtonGradient(this->m_accelPanes[i], startColour, endColour);
+        case INPUTSETTING_PRESET_CUSTOM: {
+            // Custom preset - use the selected colors
+            const int colour1Setting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_SCROLL_COLOUR1);
+            const int colour2Setting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_SCROLL_COLOUR2);
+            const int directionSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_RADIO_DIRECTION);
+
+            startColour = GetColourFromSetting(colour1Setting);
+            endColour = GetColourFromSetting(colour2Setting);
+            direction = static_cast<Direction>(directionSetting);
+            break;
+        }
+            
+        default:
+            // Fallback to white
+            startColour = 0xffffffff;
+            endColour = 0xffffffff;
+            direction = Direction_Vertical;
+            break;
     }
 
-    // Apply vertical gradient to all trigger button states
+    // Apply gradient to all button states
+    for (int i = 0; i < (int)AccelState_Count; ++i) {
+        this->SetButtonGradient(this->m_accelPanes[i], startColour, endColour, direction);
+    }
+
     for (int i = 0; i < (int)Trigger_Count; ++i) {
         for (int j = 0; j < (int)TriggerState_Count; ++j) {
-            this->SetButtonGradient(this->m_triggerPanes[i][j], startColour, endColour);
+            this->SetButtonGradient(this->m_triggerPanes[i][j], startColour, endColour, direction);
         }
     }
 
-    // Apply vertical gradient to all dpad button states
     for (int i = 0; i < (int)DpadState_Count; ++i) {
-        this->SetButtonGradient(this->m_dpadPanes[i], startColour, endColour);
+        this->SetButtonGradient(this->m_dpadPanes[i], startColour, endColour, direction);
     }
 
     // Apply vertical gradient to stick and backdrop
-    this->SetButtonGradient(this->m_stickPane, startColour, endColour);
+    this->SetButtonGradient(this->m_stickPane, startColour, endColour, direction);
     nw4r::lyt::Pane* stickBackdrop = this->layout.GetPaneByName("StickBackdrop");
     if (stickBackdrop) {
-        this->SetButtonGradient(stickBackdrop, startColour, endColour);
+        this->SetButtonGradient(stickBackdrop, startColour, endColour, direction);
+    }
+}
+
+u32 CtrlRaceInputViewer::GetColourFromSetting(int colourSetting) {
+    // Convert the colour setting value to actual RGBA colour
+    switch (colourSetting) {
+        case INPUTSETTING_COLOUR_BLACK:     return 0x000000ff;  // Black
+        case INPUTSETTING_COLOUR_BLUE:      return 0x7979ffff;  // Blue
+        case INPUTSETTING_COLOUR_BROWN:     return 0x8b4513ff;  // Brown
+        case INPUTSETTING_COLOUR_CYAN:      return 0x00ffffff;  // Cyan
+        case INPUTSETTING_COLOUR_GREY:      return 0x808080ff;  // Grey
+        case INPUTSETTING_COLOUR_GREEN:     return 0x008000ff;  // Green
+        case INPUTSETTING_COLOUR_LIME:      return 0x00ff00ff;  // Lime
+        case INPUTSETTING_COLOUR_MAGENTA:   return 0xff00ffff;  // Magenta
+        case INPUTSETTING_COLOUR_ORANGE:    return 0xffa500ff;  // Orange
+        case INPUTSETTING_COLOUR_PINK:      return 0xffc0cbff;  // Pink
+        case INPUTSETTING_COLOUR_PURPLE:    return 0x800080ff;  // Purple
+        case INPUTSETTING_COLOUR_RED:       return 0xff0000ff;  // Red
+        case INPUTSETTING_COLOUR_VIOLET:    return 0xee82eeff;  // Violet
+        case INPUTSETTING_COLOUR_WHITE:     return 0xffffffff;  // White
+        case INPUTSETTING_COLOUR_YELLOW:    return 0xffff00ff;  // Yellow
+        default:                            return 0x1b28e7ff;  // Default to Limitless blue
     }
 }
 }//namespace UI

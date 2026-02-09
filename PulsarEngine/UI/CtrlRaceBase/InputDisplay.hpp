@@ -48,6 +48,11 @@ class CtrlRaceInputViewer : public CtrlRaceBase {
         TriggerState_Pressed,
         TriggerState_Count // Invalid 
     };
+    enum Direction {
+        Direction_Vertical,
+        Direction_Horizontal,
+        Direction_Diagonal
+    };
 public:
     CtrlRaceInputViewer() {
         m_dpadState = DpadState_Off;
@@ -68,8 +73,9 @@ private:
     void setAccel(AccelState state);
     void setTrigger(Trigger trigger, TriggerState state);
     void setStick(Vec2 state);
-    void SetButtonGradient(nw4r::lyt::Pane* pane, u32 startColor, u32 endColor);
+    void SetButtonGradient(nw4r::lyt::Pane* pane, u32 startColor, u32 endColor, Direction direction);
     void ApplyButtonColours();
+    u32 GetColourFromSetting(int colourSetting);
 private:
     nw4r::lyt::Pane* m_dpadPanes[(int)DpadState_Count];
     nw4r::lyt::Pane* m_accelPanes[(int)AccelState_Count];
