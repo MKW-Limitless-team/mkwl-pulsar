@@ -3,6 +3,7 @@
 #include <MarioKartWii/Archive/ArchiveMgr.hpp>
 #include <PulsarSystem.hpp>
 #include <Gamemodes/KO/KOMgr.hpp>
+#include <Network/GPReport.hpp>
 #include <Network/Network.hpp>
 #include <Network/PacketExpansion.hpp>
 #include <Network/PulSELECT.hpp>
@@ -143,6 +144,10 @@ void ExpSELECTHandler::DecideTrack(ExpSELECTHandler& self) {
             system->netMgr.lastTracks[system->netMgr.curBlockingArrayIdx] = vote;
             system->netMgr.curBlockingArrayIdx = (system->netMgr.curBlockingArrayIdx + 1) % system->GetInfo().GetTrackBlocking();
         }
+
+        ReportU32(
+            "wl:mkw_select_course", static_cast<u32>(vote));
+        ReportU32("wl:mkw_select_cc", static_cast<u32>(GetEngineClass(self)));
     }
 }
 kmCall(0x80661490, ExpSELECTHandler::DecideTrack);
