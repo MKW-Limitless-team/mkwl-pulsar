@@ -173,6 +173,9 @@ void System::UpdateContext() {
     }
     this->context = context;
 
+    // Force HAW context to be false to disable HAW system
+    this->context &= ~(1 << PULSAR_HAW);
+
     //Create temp instances if needed:
     /*
     if(sceneId == SCENE_ID_RACE) {
