@@ -278,13 +278,13 @@ void ExpMultiKartSelect::BeforeControlUpdate() {
 void DriftSelectBeforeControlUpdate(Pages::DriftSelect* driftSelect) {
     ExpCharacterSelect* charSelect = SectionMgr::sInstance->curSection->Get<ExpCharacterSelect>();
     if(charSelect->rouletteCounter != -1 && driftSelect->currentState == 0x4) {
-        driftSelect->controlsManipulatorManager.inaccessible = true;
-        PushButton* autoButton = driftSelect->controlGroup.GetControl<PushButton>(1);
-        PushButton* manualButton = driftSelect->controlGroup.GetControl<PushButton>(0);
-        autoButton->HandleDeselect(0, -1);
-        manualButton->HandleSelect(0, -1);
-        manualButton->Select(0);
-        manualButton->HandleClick(0, -1);
+        // driftSelect->controlsManipulatorManager.inaccessible = true;
+        // PushButton* autoButton = driftSelect->controlGroup.GetControl<PushButton>(1);
+        // PushButton* manualButton = driftSelect->controlGroup.GetControl<PushButton>(0);
+        // autoButton->HandleDeselect(0, -1);
+        // manualButton->HandleSelect(0, -1);
+        // manualButton->Select(0);
+        // manualButton->HandleClick(0, -1);
         charSelect->rouletteCounter = -1;
     }
 }
@@ -295,15 +295,15 @@ void MultiDriftSelectBeforeControlUpdate(Pages::MultiDriftSelect* multiDriftSele
     SectionMgr* sectionMgr = SectionMgr::sInstance;
     ExpCharacterSelect* charSelect = sectionMgr->curSection->Get<ExpCharacterSelect>();
     if(charSelect->rouletteCounter != -1 && multiDriftSelect->currentState == 0x4) {
-        multiDriftSelect->controlsManipulatorManager.inaccessible = true;
-        for(int i = 0; i < sectionMgr->sectionParams->localPlayerCount; ++i) {
-            PushButton* autoButton = multiDriftSelect->externControls[0 + 2 * i];
-            PushButton* manualButton = multiDriftSelect->externControls[1 + 2 * i];
-            autoButton->HandleDeselect(i, -1);
-            manualButton->HandleSelect(i, -1);
-            manualButton->Select(i);
-            manualButton->HandleClick(i, -1);
-        }
+        // multiDriftSelect->controlsManipulatorManager.inaccessible = true;
+        // for(int i = 0; i < sectionMgr->sectionParams->localPlayerCount; ++i) {
+        //     PushButton* autoButton = multiDriftSelect->externControls[0 + 2 * i];
+        //     PushButton* manualButton = multiDriftSelect->externControls[1 + 2 * i];
+        //     autoButton->HandleDeselect(i, -1);
+        //     manualButton->HandleSelect(i, -1);
+        //     manualButton->Select(i);
+        //     manualButton->HandleClick(i, -1);
+        // }
         charSelect->rouletteCounter = -1;
     }
 }
