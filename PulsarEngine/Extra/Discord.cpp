@@ -93,7 +93,21 @@ void DiscordRichPresence(Section* _this) {
     Racedata* raceData = Racedata::sInstance;
     if(raceData && Raceinfo::sInstance && Raceinfo::sInstance->IsAtLeastStage(RACESTAGE_INTRO))
     {
-        const RacedataPlayer& player = raceData->menusScenario.players[0];
+
+        // Get local player ID
+        u8 localPlayerId = 0;
+        if (RKNet::Controller::sInstance) {
+            u8 localAid = RKNet::Controller::sInstance->subs[RKNet::Controller::sInstance->currentSub].localAid;
+            for (u8 pid = 0; pid < 12; ++pid) {
+                if (RKNet::Controller::sInstance->aidsBelongingToPlayerIds[pid] == localAid) {
+                    localPlayerId = pid;
+                    break;
+                }
+            }
+        }
+
+        // Get character from local player
+        const RacedataPlayer& player = raceData->racesScenario.players[localPlayerId];
         charID = player.characterId;
         
         switch (charID)
