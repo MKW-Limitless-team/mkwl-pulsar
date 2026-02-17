@@ -110,129 +110,249 @@ void DiscordRichPresence(Section* _this) {
         const RacedataPlayer& player = raceData->racesScenario.players[localPlayerId];
         charID = player.characterId;
         
+        // Get vehicle from local player
+        KartId kartID = player.kartId;
+        
+        // Vehicle name mapping
+        char vehicleName[32] = "";
+        switch (kartID)
+        {
+            case STANDARD_KART_S:
+                snprintf(vehicleName, 32, "Standard Kart S");
+                break;
+            case STANDARD_KART_M:
+                snprintf(vehicleName, 32, "Standard Kart M");
+                break;
+            case STANDARD_KART_L:
+                snprintf(vehicleName, 32, "Standard Kart L");
+                break;
+            case BABY_BOOSTER:
+                snprintf(vehicleName, 32, "Booster Seat");
+                break;
+            case CLASSIC_DRAGSTER:
+                snprintf(vehicleName, 32, "Classic Dragster");
+                break;
+            case OFFROADER:
+                snprintf(vehicleName, 32, "Offroader");
+                break;
+            case MINI_BEAST:
+                snprintf(vehicleName, 32, "Mini Beast");
+                break;
+            case WILD_WING:
+                snprintf(vehicleName, 32, "Wild Wing");
+                break;
+            case FLAME_FLYER:
+                snprintf(vehicleName, 32, "Flame Flyer");
+                break;
+            case CHEEP_CHARGER:
+                snprintf(vehicleName, 32, "Cheep Charger");
+                break;
+            case SUPER_BLOOPER:
+                snprintf(vehicleName, 32, "Super Blooper");
+                break;
+            case PIRANHA_PROWLER:
+                snprintf(vehicleName, 32, "Piranha Prowler");
+                break;
+            case RALLY_ROMPER:
+                snprintf(vehicleName, 32, "Tiny Titan");
+                break;
+            case ROYAL_RACER:
+                snprintf(vehicleName, 32, "Daytripper");
+                break;
+            case JETSETTER:
+                snprintf(vehicleName, 32, "Jetsetter");
+                break;
+            case BLUE_FALCON:
+                snprintf(vehicleName, 32, "Blue Falcon");
+                break;
+            case SPRINTER:
+                snprintf(vehicleName, 32, "Sprinter");
+                break;
+            case HONEYCOUPE:
+                snprintf(vehicleName, 32, "Honeycoupe");
+                break;
+            case STANDARD_BIKE_S:
+                snprintf(vehicleName, 32, "Standard Bike S");
+                break;
+            case STANDARD_BIKE_M:
+                snprintf(vehicleName, 32, "Standard Bike M");
+                break;
+            case STANDARD_BIKE_L:
+                snprintf(vehicleName, 32, "Standard Bike L");
+                break;
+            case BULLET_BIKE:
+                snprintf(vehicleName, 32, "Bullet Bike");
+                break;
+            case MACH_BIKE:
+                snprintf(vehicleName, 32, "Mach Bike");
+                break;
+            case BOWSER_BIKE:
+                snprintf(vehicleName, 32, "Flame Runner");
+                break;
+            case BIT_BIKE:
+                snprintf(vehicleName, 32, "Bit Bike");
+                break;
+            case BON_BON:
+                snprintf(vehicleName, 32, "Sugarscoot");
+                break;
+            case WARIO_BIKE:
+                snprintf(vehicleName, 32, "Wario Bike");
+                break;
+            case QUACKER:
+                snprintf(vehicleName, 32, "Quacker");
+                break;
+            case RAPIDE:
+                snprintf(vehicleName, 32, "Zip Zip");
+                break;
+            case SHOOTING_STAR:
+                snprintf(vehicleName, 32, "Shooting Star");
+                break;
+            case MAGIKRUISER:
+                snprintf(vehicleName, 32, "Magikruiser");
+                break;
+            case NITROCYCLE:
+                snprintf(vehicleName, 32, "Sneakster");
+                break;
+            case SPEAR:
+                snprintf(vehicleName, 32, "Spear");
+                break;
+            case JET_BUBBLE:
+                snprintf(vehicleName, 32, "Jet Bubble");
+                break;
+            case DOLPHIN_DASHER:
+                snprintf(vehicleName, 32, "Dolphin Dasher");
+                break;
+            case PHANTOM:
+                snprintf(vehicleName, 32, "Phantom");
+                break;
+            default:
+                snprintf(vehicleName, 32, "Unknown Vehicle");
+                break;
+        }
+
         switch (charID)
         {
             case BABY_MARIO:
                 snprintf(smallImageKey, 32, "bmario");
-                snprintf(smallImageText, 32, "Baby Mario");
+                snprintf(smallImageText, 32, "Baby Mario - %s", vehicleName);
                 break;
 
             case BABY_LUIGI:
                 snprintf(smallImageKey, 32, "bluigi");
-                snprintf(smallImageText, 32, "Baby Luigi");
+                snprintf(smallImageText, 32, "Baby Luigi - %s", vehicleName);
                 break;
 
             case BABY_PEACH:
                 snprintf(smallImageKey, 32, "bpeach");
-                snprintf(smallImageText, 32, "Baby Peach");
+                snprintf(smallImageText, 32, "Baby Peach - %s", vehicleName);
                 break;
 
             case BABY_DAISY:
                 snprintf(smallImageKey, 32, "bdaisy");
-                snprintf(smallImageText, 32, "Baby Daisy");
+                snprintf(smallImageText, 32, "Baby Daisy - %s", vehicleName);
                 break;
 
             case TOAD:
                 snprintf(smallImageKey, 32, "toad");
-                snprintf(smallImageText, 32, "Toad");
+                snprintf(smallImageText, 32, "Toad - %s", vehicleName);
                 break;
 
             case TOADETTE:
                 snprintf(smallImageKey, 32, "toadette");
-                snprintf(smallImageText, 32, "Toadette");
+                snprintf(smallImageText, 32, "Toadette - %s", vehicleName);
                 break;
 
             case KOOPA_TROOPA:
                 snprintf(smallImageKey, 32, "koopa_troopa");
-                snprintf(smallImageText, 32, "Koopa Troopa");
+                snprintf(smallImageText, 32, "Koopa Troopa - %s", vehicleName);
                 break;
 
             case DRY_BONES:
                 snprintf(smallImageKey, 32, "dry_bones");
-                snprintf(smallImageText, 32, "Dry Bones");
+                snprintf(smallImageText, 32, "Dry Bones - %s", vehicleName);
                 break;
 
             case MARIO:
                 snprintf(smallImageKey, 32, "mario");
-                snprintf(smallImageText, 32, "Mario");
+                snprintf(smallImageText, 32, "Mario - %s", vehicleName);
                 break;
                 
             case LUIGI:
                 snprintf(smallImageKey, 32, "luigi");
-                snprintf(smallImageText, 32, "Luigi");
+                snprintf(smallImageText, 32, "Luigi - %s", vehicleName);
                 break;
 
             case PEACH:
             case PEACH_BIKER:
                 snprintf(smallImageKey, 32, "peach");
-                snprintf(smallImageText, 32, "Peach");
+                snprintf(smallImageText, 32, "Peach - %s", vehicleName);
                 break;
 
             case DAISY:
             case DAISY_BIKER:
                 snprintf(smallImageKey, 32, "daisy");
-                snprintf(smallImageText, 32, "Daisy");
+                snprintf(smallImageText, 32, "Daisy - %s", vehicleName);
                 break;
 
             case YOSHI:
                 snprintf(smallImageKey, 32, "yoshi");
-                snprintf(smallImageText, 32, "Yoshi");
+                snprintf(smallImageText, 32, "Yoshi - %s", vehicleName);
                 break;
 
             case BIRDO:
                 snprintf(smallImageKey, 32, "birdo");
-                snprintf(smallImageText, 32, "Birdo");
+                snprintf(smallImageText, 32, "Birdo - %s", vehicleName);
                 break;
 
             case DIDDY_KONG:
                 snprintf(smallImageKey, 32, "diddy");
-                snprintf(smallImageText, 32, "Diddy Kong");
+                snprintf(smallImageText, 32, "Diddy Kong - %s", vehicleName);
                 break;
 
             case BOWSER_JR:
                 snprintf(smallImageKey, 32, "bowser_jr");
-                snprintf(smallImageText, 32, "Bowser Jr");
+                snprintf(smallImageText, 32, "Bowser Jr - %s", vehicleName);
                 break;
 
             case WARIO:
                 snprintf(smallImageKey, 32, "wario");
-                snprintf(smallImageText, 32, "Wario");
+                snprintf(smallImageText, 32, "Wario - %s", vehicleName);
                 break;
 
             case WALUIGI:
                 snprintf(smallImageKey, 32, "waluigi");
-                snprintf(smallImageText, 32, "Waluigi");
+                snprintf(smallImageText, 32, "Waluigi - %s", vehicleName);
                 break;
 
             case DONKEY_KONG:
                 snprintf(smallImageKey, 32, "dk");
-                snprintf(smallImageText, 32, "Donkey Kong");
+                snprintf(smallImageText, 32, "Donkey Kong - %s", vehicleName);
                 break;
 
             case BOWSER:
                 snprintf(smallImageKey, 32, "bowser");
-                snprintf(smallImageText, 32, "Bowser");
+                snprintf(smallImageText, 32, "Bowser - %s", vehicleName);
                 break;
 
             case KING_BOO:
                 snprintf(smallImageKey, 32, "king_boo");
-                snprintf(smallImageText, 32, "King Boo");
+                snprintf(smallImageText, 32, "King Boo - %s", vehicleName);
                 break;
 
             case ROSALINA:
             case ROSALINA_BIKER:
                 snprintf(smallImageKey, 32, "rosalina");
-                snprintf(smallImageText, 32, "Rosalina");
+                snprintf(smallImageText, 32, "Rosalina - %s", vehicleName);
                 break;
 
             case FUNKY_KONG:
                 snprintf(smallImageKey, 32, "funky");
-                snprintf(smallImageText, 32, "Funky Kong");
+                snprintf(smallImageText, 32, "Funky Kong - %s", vehicleName);
                 break;
 
             case DRY_BOWSER:
                 snprintf(smallImageKey, 32, "dry_bowser");
-                snprintf(smallImageText, 32, "Dry Bowser");
+                snprintf(smallImageText, 32, "Dry Bowser - %s", vehicleName);
                 break;
 
             case MII_L_A_MALE:
@@ -242,7 +362,7 @@ void DiscordRichPresence(Section* _this) {
             case MII_S_A_MALE:
             case MII_S_A_FEMALE:
                 snprintf(smallImageKey, 32, "mii_a");
-                snprintf(smallImageText, 32, "Mii (Outfit A)");
+                snprintf(smallImageText, 32, "Mii Outfit A - %s", vehicleName);
                 break;
 
             case MII_L_B_MALE:
@@ -252,7 +372,7 @@ void DiscordRichPresence(Section* _this) {
             case MII_S_B_MALE:
             case MII_S_B_FEMALE:
                 snprintf(smallImageKey, 32, "mii_b");
-                snprintf(smallImageText, 32, "Mii (Outfit B)");
+                snprintf(smallImageText, 32, "Mii Outfit B - %s", vehicleName);
                 break;
 
         }
