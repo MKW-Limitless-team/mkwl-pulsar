@@ -128,20 +128,20 @@
   2f03	= \z{800,55}Host Settings
   2f04	= \z{800,55}OTT Settings
   2f05	= \z{800,55}KO Settings
-  2f06  = \z{800,55}Input Display
+  2f06  = \z{800,55}Theme Settings
   2f10	= Save these settings.
   2f11	= Access your Misc settings.
   2f12	= Access your race settings.
   2f13	= Access your host settings.
   2f14  = Access your Online TT settings.
   2f15  = Access your KO settings.
-  2f16  = Access your Input Display settings.
+  2f16  = Access your Theme settings.
   2f20	= Misc Settings
   2f21	= Race Settings
   2f22	= Host Settings (Friend Rooms Only)
   2f23  = OnlineTT Settings
   2f24  = KO Settings
-  2f25  = Input Display Settings
+  2f25  = Theme Settings
   
   3000	= Fast Menus
   3001	= CT Layout
@@ -304,7 +304,7 @@
   7903  = KOs will occur every 4 races.
 
   8000  = Input Display
-  8001  = Preset
+  8001  = Theme
   8002  = Direction
   
   8010  = Disabled
@@ -338,15 +338,16 @@
   8713  = Cyan
   8714  = Grey
   8715  = Green
-  8716  = Lime
-  8717  = Magenta
-  8718  = Orange
-  8719  = Pink
-  871a  = Purple
-  871b  = Red
-  871c  = Violet
-  871d  = White
-  871e  = Yellow
+  8716  = Indigo
+  8717  = Lime
+  8718  = Magenta
+  8719  = Orange
+  871a  = Pink
+  871b  = Purple
+  871c  = Red
+  871d  = Teal
+  871e  = White
+  871f  = Yellow
 
   8720  = Black
   8721  = Blue
@@ -354,14 +355,14 @@
   8723  = Cyan
   8724  = Grey
   8725  = Green
-  8726  = Lime
-  8727  = Magenta
-  8728  = Orange
-  8729  = Pink
-  872a  = Purple
-  872b  = Red
-  872c  = Violet
-  872d  = White
-  872e  = Yellow
-
+  8726  = Indigo
+  8727  = Lime
+  8728  = Magenta
+  8729  = Orange
+  872a  = Pink
+  872b  = Purple
+  872c  = Red
+  872d  = Teal
+  872e  = White
+  872f  = Yellow
   
