@@ -1775,6 +1775,7 @@ GetRaceinfoRandom__9DriverMgrFv = 0x807bd718
 sInstance__9DriverMgr = 0x809c23f8
 isOnlineRace__9DriverMgr = 0x809c38b9
 isTT__9DriverMgr = 0x809c38bc
+timers__9DriverMgr = 0x809c38c0
 
 
 ##OBJECTS
@@ -1899,8 +1900,6 @@ NHTTPGetBody = 0x801d6500
 NHTTPGetAllResponseHeaders = 0x801d6600
 
 gpiAppendStringToBuffer__2GPFPPQ22GP10ConnectionPQ22GP7IBufferPCc = 0x800ff014
+gpiProcess__2GPFPPQ22GP10Connectioni = 0x800fcfbc
 
 
-#KMP AREA
-GetPhysics__Q24Kart4LinkFv = 0x805903cc
-Update__Q24Kart7PhysicsFbff = 0x805b5170

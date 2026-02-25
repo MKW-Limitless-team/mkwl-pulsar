@@ -37,5 +37,15 @@ void ReportU32(const char* key, u32 uint) {
     Report(key, buffer);
 }
 
+void PumpGPI()
+{
+    GP::Connection** connection = DWC::MatchControl::sInstance->gpConnection;
+    if (connection == nullptr || *connection == nullptr)
+        return;
+
+    // Non-blocking pump
+    GP::gpiProcess(connection, 0);
+}
+
 }  // namespace Network
 }  // namespace Pulsar

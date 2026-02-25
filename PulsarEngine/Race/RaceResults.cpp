@@ -6,6 +6,7 @@
 #include <core/rvl/OS/OS.hpp>
 #include <Network/GPReport.hpp>
 
+#define TIMESTAMP_INTERVAL 20 //frames
 // DWCi declarations for node info
 struct DWCiNodeInfo {
     u32 profileId;
@@ -18,15 +19,15 @@ extern "C" DWCiNodeInfo* DWCi_NodeInfoList_GetNodeInfoForAid(u8 playerAid);
 namespace Pulsar {
 namespace Race {
 
-// Race frame hook for timestamps
 // Variables to store timestamps
-static u64 raceStartTime = 0;
-static u64 raceFinishTime = 0;
-static u32 raceDurationMs = 0;
+static u32 raceStartTime = 0;
+static u32 raceProgressTime = 0;
+static u32 raceFinishTime = 0;
 
 // Flags to ensure timestamps are only captured once per race stage
 static bool raceStartTimeRecorded = false;
 static bool raceFinishRecorded = false;
+static u8 frameCount = 0;
 
 // Helper function to check if the local player has finished the race
 static bool hasFinished() {
@@ -86,11 +87,10 @@ static void UpdatePoints_Hook() {
         OS::Report("PULSAR: error message=\"Invalid player count %u\"\n", playerCount);
         return;
     }
-    
 
     // Build JSON matching server schema (only for local player)
     char reportJson[4096];
-    int pos = snprintf(reportJson, sizeof(reportJson), "{\"client_report_version\":\"1.1\",\"player\":");
+    int pos = snprintf(reportJson, sizeof(reportJson), "{\"client_report_version\":\"1.0\",\"player\":");
     if (pos < 0) return;
 
     // Only process the local player
@@ -109,10 +109,8 @@ static void UpdatePoints_Hook() {
             }
         }
 
-        // Resolve an authoritative profile id (pid) when possible.
         u32 pid = 0;
         if (RKNet::Controller::sInstance) {
-            // Map player index -> aid
             u8 aid = RKNet::Controller::sInstance->aidsBelongingToPlayerIds[i];
             DWCiNodeInfo* nodeInfo = DWCi_NodeInfoList_GetNodeInfoForAid(aid);
             if (nodeInfo) {
@@ -123,77 +121,60 @@ static void UpdatePoints_Hook() {
         u32 character = static_cast<u32>(rdPlayer.characterId);
         u32 kart = static_cast<u32>(rdPlayer.kartId);
 
-        // Get player's finishing position and room size
-        u8 position = 0;
-        if (raceinfo->players && raceinfo->players[i]) {
-            position = raceinfo->players[i]->position;
-        }
-
         // Build JSON
         if (hasTime) {
             u32 true_finishTime = OS::TicksToMilliseconds(raceFinishTime - raceStartTime);
             snprintf(reportJson + strlen(reportJson), sizeof(reportJson) - strlen(reportJson),
-                     "{\"pid\":%u,\"finish_time_ms\":%u,\"position\":[%u,%u],\"character_id\":%u,\"kart_id\":%u",
-                     pid, finishTime, position, playerCount, character, kart);
+                     "{\"pid\":%u,\"finish_time_ms\":%u,\"character_id\":%u,\"kart_id\":%u",
+                     pid, finishTime, character, kart);
         } else {
             snprintf(reportJson + strlen(reportJson), sizeof(reportJson) - strlen(reportJson),
-                     "{\"pid\":%u,\"finish_time_ms\":null,\"position\":[%u,%u],\"character_id\":%u,\"kart_id\":%u",
-                     pid, position, playerCount, character, kart);
+                     "{\"pid\":%u,\"finish_time_ms\":null,\"character_id\":%u,\"kart_id\":%u",
+                     pid, character, kart);
         }
     }
 
     snprintf(reportJson + strlen(reportJson), sizeof(reportJson) - strlen(reportJson), "}}");
-
-    // Send under the key the server expects
     Network::Report("wl:mkw_race_result", reportJson);
 }
 
 // Hook the blr instruction at 0x8052ed14 at the end of RacedataScenario::UpdatePoints
 kmBranch(0x8052ed14, UpdatePoints_Hook);
 
-// The race frame hook function
 void GetTimestamp() {
-    // Ensure Raceinfo instance is valid
     Raceinfo* raceInfo = Raceinfo::sInstance;
-    if (!raceInfo) {
-        OS::Report("PULSAR: error message=\"Raceinfo::sInstance is NULL\"\n");
-        return; // Should not happen, but good practice
-    }
 
-    // Reset timing variables when entering a new race (RACESTAGE_INTRO)
+    // Reset timing variables when entering a new race
     if (raceInfo->stage == RACESTAGE_INTRO) {
         raceStartTime = 0;
         raceFinishTime = 0;
-        raceDurationMs = 0;
         raceStartTimeRecorded = false;
         raceFinishRecorded = false;
     }
 
-    if (raceInfo->stage == RACESTAGE_RACE && !raceStartTimeRecorded) {
-        raceStartTime = OS::GetTime();
-        raceStartTime = OS::TicksToMilliseconds(raceStartTime);
+    if (raceInfo->stage == RACESTAGE_COUNTDOWN && !raceStartTimeRecorded) {
+        raceStartTime = OS::TicksToMilliseconds(OS::GetTime());
         raceStartTimeRecorded = true;
-        OS::Report("PULSAR: stage_timing race_start_time=%llu ms\n", raceStartTime);
-
-        // Report timestamp
-        char timestamp[32];
-        snprintf(timestamp, sizeof(timestamp), "%llu", raceStartTime);
-        Network::Report("wl:mkw_race_start_time", timestamp);
+        Network::ReportU32("wl:mkw_race_start_time", raceStartTime);
     }
 
-    if (!raceFinishRecorded && raceStartTime > 0) {
-        if (hasFinished()) {
-            raceFinishTime = OS::GetTime();
-            raceFinishTime = OS::TicksToMilliseconds(raceFinishTime);
-            raceFinishRecorded = true;
-            OS::Report("PULSAR: stage_timing race_finish_time=%llu ms\n", raceFinishTime);
+    if(!raceFinishRecorded && raceStartTimeRecorded) {
+        if(frameCount == TIMESTAMP_INTERVAL) {
+            raceProgressTime = OS::TicksToMilliseconds(OS::GetTime());
+            Network::ReportU32("wl:mkw_race_progress_time", raceProgressTime);
+            frameCount = 0;
+        }
+        else frameCount++;
 
-            // Report timestamp
-            char timestamp[32];
-            snprintf(timestamp, sizeof(timestamp), "%llu", raceFinishTime);
-            Network::Report("wl:mkw_race_finish_time", timestamp);
+        if (hasFinished()) {
+            raceFinishTime = OS::TicksToMilliseconds(OS::GetTime());
+            raceFinishRecorded = true;
+            OS::Report("PULSAR: race_finish_time=%u ms\n", raceFinishTime);
+            Network::ReportU32("wl:mkw_race_finish_time", raceFinishTime);
         }
     }
+
+    Network::PumpGPI(); // Force flush the buffer every frame for accurate timing
 }
 
 RaceFrameHook raceTimestampsHook(GetTimestamp);
