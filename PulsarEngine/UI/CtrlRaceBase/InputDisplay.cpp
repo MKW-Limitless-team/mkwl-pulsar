@@ -35,9 +35,9 @@ void CtrlRaceInputViewer::Init() {
     // Check if this is a nunchuck controller to handle positioning differently
     const SectionId sectionId = SectionMgr::sInstance->curSection->sectionId;
     const ControllerType controllerType = SectionMgr::sInstance->pad.padInfos[0].controllerHolder->curController->GetType();
-    const int inputSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_RADIO_INPUT);
+    const int inputSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_THEME, SETTINGTHEME_RADIO_INPUT);
     const bool isGhostRace = (sectionId >= SECTION_WATCH_GHOST_FROM_CHANNEL && sectionId <= SECTION_WATCH_GHOST_FROM_MENU);
-    bool isNunchuck = (controllerType == NUNCHUCK) && !(inputSetting == INPUTSETTING_INPUT_FORCED || isGhostRace);
+    bool isNunchuck = (controllerType == NUNCHUCK) && !(inputSetting == THEMESETTING_INPUT_FORCED || isGhostRace);
 
     for (int i = 0; i < (int)AccelState_Count; ++i) {
         AccelState state = static_cast<AccelState>(i);
@@ -127,10 +127,10 @@ void CtrlRaceInputViewer::OnUpdate() {
     }
 }
 u32 CtrlRaceInputViewer::Count() {
-    if(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_RADIO_INPUT) == INPUTSETTING_INPUT_DISABLED)
+    if(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_THEME, SETTINGTHEME_RADIO_INPUT) == THEMESETTING_INPUT_DISABLED)
         return 0;
-    else if(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_RADIO_INPUT) == INPUTSETTING_INPUT_ENABLED || 
-    Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_RADIO_INPUT) == INPUTSETTING_INPUT_FORCED) {
+    else if(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_THEME, SETTINGTHEME_RADIO_INPUT) == THEMESETTING_INPUT_ENABLED || 
+    Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_THEME, SETTINGTHEME_RADIO_INPUT) == THEMESETTING_INPUT_FORCED) {
         // Declare and initialize scenario here
         const RacedataScenario& scenario = Racedata::sInstance->racesScenario;
         u32 localPlayerCount = scenario.localPlayerCount;
@@ -162,15 +162,15 @@ void CtrlRaceInputViewer::Load(const char* variant, u8 id) {
 
     const SectionId sectionId = SectionMgr::sInstance->curSection->sectionId;
     const ControllerType controllerType = SectionMgr::sInstance->pad.padInfos[0].controllerHolder->curController->GetType();
-    const int inputSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_INPUT, SETTINGINPUT_RADIO_INPUT);
+    const int inputSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_THEME, SETTINGTHEME_RADIO_INPUT);
     const bool isGhostRace = (sectionId >= SECTION_WATCH_GHOST_FROM_CHANNEL && sectionId <= SECTION_WATCH_GHOST_FROM_MENU);
 
-    if (inputSetting == INPUTSETTING_INPUT_FORCED || isGhostRace) {
+    if (inputSetting == THEMESETTING_INPUT_FORCED || isGhostRace) {
         loader.Load(UI::raceFolder, "PULInputViewer", variant, groups);
         return;
     }
 
-    if (controllerType == NUNCHUCK && inputSetting == INPUTSETTING_INPUT_ENABLED && !isGhostRace) {
+    if (controllerType == NUNCHUCK && inputSetting == THEMESETTING_INPUT_ENABLED && !isGhostRace) {
         loader.Load(UI::raceFolder, "PULInputViewerNunchuck", variant, groups);
         return;
     }
