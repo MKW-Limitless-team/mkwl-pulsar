@@ -10,10 +10,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #ifndef INPUT_DISPLAY
 #define INPUT_DISPLAY
 #include <kamek.hpp>
+#include <Settings/Settings.hpp>
 #include <UI/CtrlRaceBase/CustomCtrlRaceBase.hpp>
 #include <MarioKartWii/Kart/KartManager.hpp>
 #include <MarioKartWii/Race/RaceInfo/RaceInfo.hpp>
-#include <UI/CtrlRaceBase/GradientUtils.hpp>
 #include <UI/UI.hpp>
 
 //Input Display by MKW-SP Team ported by Rambo
@@ -68,8 +68,6 @@ private:
     void setAccel(AccelState state);
     void setTrigger(Trigger trigger, TriggerState state);
     void setStick(Vec2 state);
-    void SetButtonGradient(nw4r::lyt::Pane* pane, u32 startColor, u32 endColor, GradientUtils::Direction direction);
-    void ApplyButtonColours();
 private:
     nw4r::lyt::Pane* m_dpadPanes[(int)DpadState_Count];
     nw4r::lyt::Pane* m_accelPanes[(int)AccelState_Count];

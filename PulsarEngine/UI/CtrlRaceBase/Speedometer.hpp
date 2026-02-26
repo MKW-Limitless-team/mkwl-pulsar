@@ -2,7 +2,7 @@
 #define _PULSOM_
 #include <kamek.hpp>
 #include <UI/CtrlRaceBase/CustomCtrlRaceBase.hpp>
-#include <UI/CtrlRaceBase/GradientUtils.hpp>
+#include <Settings/Settings.hpp>
 
 //Simple speedometer that uses TPLs instead of text because the default font numbers have a very ugly black outline
 namespace Pulsar {
@@ -32,7 +32,6 @@ private:
         };
     };
     void Load(const char* variant, u8 id);
-    void SetPaneGradient(nw4r::lyt::Pane* pane, u32 startColour, u32 endColour, int direction);
     void Animate(const SpeedArg* args = nullptr);
 };
 }//namespace UI

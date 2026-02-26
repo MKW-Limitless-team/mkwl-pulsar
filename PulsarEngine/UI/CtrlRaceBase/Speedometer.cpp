@@ -46,10 +46,6 @@ void CtrlRaceSpeedo::Load(const char* variant, u8 id) {
     return;
 }
 
-void CtrlRaceSpeedo::SetPaneGradient(nw4r::lyt::Pane* pane, u32 startColour, u32 endColour, int direction) {
-    GradientUtils::SetPaneGradient(pane, startColour, endColour, static_cast<GradientUtils::Direction>(direction));
-}
-
 void CtrlRaceSpeedo::Init() {
     this->HudSlotColorEnable("speed0", true);
     this->HudSlotColorEnable("speed1", true);
@@ -58,26 +54,7 @@ void CtrlRaceSpeedo::Init() {
     this->HudSlotColorEnable("speed4", true);
     this->HudSlotColorEnable("speed5", true);
     this->HudSlotColorEnable("speed6", true);
-    this->HudSlotColorEnable("kmh", true);
-    
-    // Apply gradient colors from Input Display
-    u32 startColour, endColour;
-    int direction;
-    GradientUtils::GetCurrentGradient(startColour, endColour, direction);
-
-    const char* paneNames[] = {
-        "speed0", "speed1", "speed2", "speed3",
-        "speed4", "speed5", "speed6", "kmh"
-    };
-
-    for (int i = 0; i < 8; ++i) {
-        const char* name = paneNames[i];
-        nw4r::lyt::Pane* pane = this->layout.GetPaneByName(name);
-        if (pane) {
-            SetPaneGradient(pane, startColour, endColour, direction);
-        }
-    }
-    
+    this->HudSlotColorEnable("kmh", true);    
     LayoutUIControl::Init();
     return;
 }

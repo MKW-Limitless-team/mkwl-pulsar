@@ -83,8 +83,6 @@ void CtrlRaceInputViewer::Init() {
     this->HudSlotColorEnable("Stick", true);
     this->HudSlotColorEnable("StickBackdrop", true);
 
-    this->ApplyButtonColours();
-
     LayoutUIControl::Init();
 }
 
@@ -224,37 +222,5 @@ void CtrlRaceInputViewer::setStick(Vec2 state) {
     m_stickState = state;
 }
 
-void CtrlRaceInputViewer::SetButtonGradient(nw4r::lyt::Pane* pane, u32 startColour, u32 endColour, GradientUtils::Direction direction ) {
-    GradientUtils::SetPaneGradient(pane, startColour, endColour, direction);
-}
-
-void CtrlRaceInputViewer::ApplyButtonColours() {
-    u32 startColour, endColour;
-    int direction;
-    GradientUtils::GetCurrentGradient(startColour, endColour, direction);
-    GradientUtils::Direction dir = static_cast<GradientUtils::Direction>(direction);
-
-    // Apply gradient to all button states
-    for (int i = 0; i < (int)AccelState_Count; ++i) {
-        this->SetButtonGradient(this->m_accelPanes[i], startColour, endColour, dir);
-    }
-
-    for (int i = 0; i < (int)Trigger_Count; ++i) {
-        for (int j = 0; j < (int)TriggerState_Count; ++j) {
-            this->SetButtonGradient(this->m_triggerPanes[i][j], startColour, endColour, dir);
-        }
-    }
-
-    for (int i = 0; i < (int)DpadState_Count; ++i) {
-        this->SetButtonGradient(this->m_dpadPanes[i], startColour, endColour, dir);
-    }
-
-    // Apply vertical gradient to stick and backdrop
-    this->SetButtonGradient(this->m_stickPane, startColour, endColour, dir);
-    nw4r::lyt::Pane* stickBackdrop = this->layout.GetPaneByName("StickBackdrop");
-    if (stickBackdrop) {
-        this->SetButtonGradient(stickBackdrop, startColour, endColour, dir);
-    }
-}
 }//namespace UI
 }//namespace Pulsar
