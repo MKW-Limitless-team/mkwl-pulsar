@@ -42,6 +42,9 @@ void ApplyRaceHUDColours() {
 
         // Validate layout before accessing it
         if (!layoutControl->layout.layout.rootPane) continue;
+        // Validate memory address range (Wii MEM2 cached: 0x90000000 - 0x93FFFFFF)
+        u32 rootPaneAddr = reinterpret_cast<u32>(layoutControl->layout.layout.rootPane);
+        if (rootPaneAddr < 0x90000000 || rootPaneAddr > 0x93FFFFFF) continue;
         
         // Find and colour each target pane in this layout
         for (int j = 0; j < sizeof(paneNames) / sizeof(paneNames[0]); ++j) {
