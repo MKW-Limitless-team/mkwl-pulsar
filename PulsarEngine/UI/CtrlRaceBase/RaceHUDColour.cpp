@@ -6,22 +6,14 @@
 namespace Pulsar {
 namespace UI {
 
-static bool FirstLoad = true;
 // Apply gradient colours to race HUD panes to match speedometer and input display
 void ApplyRaceHUDColours() {
-    if (FirstLoad) {
-        FirstLoad = false;
-    }
-    else {
-        return;
-    }
     
     // Get current gradient colours from Input Display settings
     u32 startColour, endColour;
     int direction;
     GradientUtils::GetCurrentGradient(startColour, endColour, direction);
     
-
     const Section* curSection = SectionMgr::sInstance->curSection;
     if (!curSection) return;
     
@@ -47,6 +39,9 @@ void ApplyRaceHUDColours() {
         // Check if control has a layout (LayoutUIControl)
         const LayoutUIControl* layoutControl = static_cast<const LayoutUIControl*>(control);
         if (!layoutControl) continue;
+
+        // Validate layout before accessing it
+        if (!layoutControl->layout.layout.rootPane) continue;
         
         // Find and colour each target pane in this layout
         for (int j = 0; j < sizeof(paneNames) / sizeof(paneNames[0]); ++j) {
@@ -64,9 +59,6 @@ void ApplyRaceHUDColours() {
 
 // Register hook to apply race HUD colours every frame during race
 RaceFrameHook RaceHUDColourHook(ApplyRaceHUDColours);
-
-void ResetRaceHUDColours() {FirstLoad = true;}
-RaceLoadHook ResetRaceHUDColoursHook(ResetRaceHUDColours);
 
 } // namespace UI
 } // namespace Pulsar
