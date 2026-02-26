@@ -3,7 +3,7 @@
 namespace Pulsar {
 namespace UI {
 
-void GradientUtils::GetCurrentGradient(u32& startColour, u32& endColour, int& direction) {
+void GradientUtils::GetCurrentGradient(u32& startColour, u32& endColour, Direction& direction) {
     const int presetSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_THEME, SETTINGTHEME_RADIO_PRESET);
 
     switch (presetSetting) {
@@ -25,7 +25,7 @@ void GradientUtils::GetCurrentGradient(u32& startColour, u32& endColour, int& di
         case THEMESETTING_PRESET_CUSTOM: {
             const int colour1 = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_THEME, SETTINGTHEME_SCROLL_COLOUR1);
             const int colour2 = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_THEME, SETTINGTHEME_SCROLL_COLOUR2);
-            const int dir = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_THEME, SETTINGTHEME_RADIO_DIRECTION);
+            const Direction dir = static_cast<Direction>(Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_THEME, SETTINGTHEME_RADIO_DIRECTION));
             startColour = GetColourFromSetting(colour1);
             endColour = GetColourFromSetting(colour2);
             direction = dir;

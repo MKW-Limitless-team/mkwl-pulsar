@@ -16,7 +16,7 @@ public:
     };
 
     // Get current gradient colours and direction from Input Display settings
-    static void GetCurrentGradient(u32& startColour, u32& endColour, int& direction);
+    static void GetCurrentGradient(u32& startColour, u32& endColour, Direction& direction);
     
     // Convert setting value to RGBA colour
     static u32 GetColourFromSetting(int colourSetting);
