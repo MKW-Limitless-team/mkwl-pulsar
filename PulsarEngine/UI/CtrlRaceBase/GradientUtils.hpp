@@ -23,6 +23,9 @@ public:
     
     // Apply gradient to a picture pane
     static void SetPaneGradient(nw4r::lyt::Pane* pane, u32 startColour, u32 endColour, Direction direction);
+
+    static void ApplyRaceHUDColours();
+
 };
 
 }//namespace UI
