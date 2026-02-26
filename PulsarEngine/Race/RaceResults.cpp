@@ -169,7 +169,6 @@ void GetTimestamp() {
         if (hasFinished()) {
             raceFinishTime = OS::TicksToMilliseconds(OS::GetTime());
             raceFinishRecorded = true;
-            OS::Report("PULSAR: race_finish_time=%u ms\n", raceFinishTime);
             Network::ReportU32("wl:mkw_race_finish_time", raceFinishTime);
         }
     }
