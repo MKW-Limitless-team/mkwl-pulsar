@@ -7,7 +7,7 @@ namespace Pulsar {
     kmWrite32(0x80643C2C, 0x60000000);
 
     // Placement Difference mod [QuestionBlock22]
-    asmFunc PositionCompare() {
+    asmFunc PlacementDifference() {
         ASM(
             nofralloc;
             lis r11, 0x809C;
@@ -59,6 +59,6 @@ namespace Pulsar {
         end:;
         )
     }
-    kmCall(0x807f530c, PositionCompare);
+    kmCall(0x807f530c, PlacementDifference);
 }
 
