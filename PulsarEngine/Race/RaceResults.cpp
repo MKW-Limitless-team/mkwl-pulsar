@@ -51,8 +51,18 @@ static bool hasFinished() {
            (raceInfo->players[localPlayerId]->stateFlags & 0x2);
 }
 
+static bool isOnlineRace() {
+    GameMode mode = Racedata::sInstance->racesScenario.settings.gamemode;
+    return (mode == MODE_PRIVATE_VS || mode == MODE_PUBLIC_VS);
+}
+
 // Hook RacedataScenario::UpdatePoints at 0x8052e950
 static void UpdatePoints_Hook() {
+
+    // Only log for online VS races 
+    if (!isOnlineRace()) {
+        return;
+    }
 
     RacedataScenario& racesscenario = Racedata::sInstance->racesScenario;
 
@@ -72,12 +82,6 @@ static void UpdatePoints_Hook() {
     Raceinfo* raceinfo = Raceinfo::sInstance;
     if (!raceinfo) {
         OS::Report("PULSAR: error message=\"Raceinfo::sInstance is NULL\"\n");
-        return;
-    }
-
-    // Only log for online VS races (MODE_PRIVATE_VS=6 or MODE_PUBLIC_VS=7)
-    GameMode mode = racesscenario.settings.gamemode;
-    if (mode != MODE_PRIVATE_VS && mode != MODE_PUBLIC_VS) {
         return;
     }
     
@@ -142,6 +146,9 @@ static void UpdatePoints_Hook() {
 kmBranch(0x8052ed14, UpdatePoints_Hook);
 
 void GetTimestamp() {
+    if (!isOnlineRace()) {
+        return;
+    }
     Raceinfo* raceInfo = Raceinfo::sInstance;
 
     // Reset timing variables when entering a new race
