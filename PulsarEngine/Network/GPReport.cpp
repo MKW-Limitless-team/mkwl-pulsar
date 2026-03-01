@@ -39,10 +39,11 @@ void ReportU32(const char* key, u32 uint) {
 
 void PumpGPI()
 {
+    if (DWC::MatchControl::sInstance == nullptr) return;
+    
     GP::Connection** connection = DWC::MatchControl::sInstance->gpConnection;
-    if (connection == nullptr || *connection == nullptr)
-        return;
-
+    if (connection == nullptr || *connection == nullptr) return;
+    
     // Non-blocking pump
     GP::gpiProcess(connection, 0);
 }
