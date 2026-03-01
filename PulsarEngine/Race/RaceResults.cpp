@@ -29,28 +29,6 @@ static bool raceStartTimeRecorded = false;
 static bool raceFinishRecorded = false;
 static u8 frameCount = 0;
 
-// Helper function to check if the local player has finished the race
-static bool hasFinished() {
-    Raceinfo* raceInfo = Raceinfo::sInstance;
-    if (!raceInfo) {
-        return false;
-    }
-    
-    u8 localPlayerId = 0;
-    if (RKNet::Controller::sInstance) {
-        u8 localAid = RKNet::Controller::sInstance->subs[RKNet::Controller::sInstance->currentSub].localAid;
-        for (u8 pid = 0; pid < 12; ++pid) {
-            if (RKNet::Controller::sInstance->aidsBelongingToPlayerIds[pid] == localAid) {
-                localPlayerId = pid;
-                break;
-            }
-        }
-    }
-    
-    return raceInfo->players && raceInfo->players[localPlayerId] && 
-           (raceInfo->players[localPlayerId]->stateFlags & 0x2);
-}
-
 static bool isOnlineRace() {
     GameMode mode = Racedata::sInstance->racesScenario.settings.gamemode;
     return (mode == MODE_PRIVATE_VS || mode == MODE_PUBLIC_VS);
@@ -67,7 +45,7 @@ static void UpdatePoints_Hook() {
     RacedataScenario& racesscenario = Racedata::sInstance->racesScenario;
 
     // Get local player ID to report only our own result
-    u8 localPlayerId = 0;
+    u8 localPlayerId = -1;
     if (RKNet::Controller::sInstance) {
         u8 localAid = RKNet::Controller::sInstance->subs[RKNet::Controller::sInstance->currentSub].localAid;
         for (u8 pid = 0; pid < 12; ++pid) {
@@ -77,6 +55,7 @@ static void UpdatePoints_Hook() {
             }
         }
     }
+    if (localPlayerId == -1) return;
 
     // Get Raceinfo for finish times
     Raceinfo* raceinfo = Raceinfo::sInstance;
@@ -127,7 +106,6 @@ static void UpdatePoints_Hook() {
 
         // Build JSON
         if (hasTime) {
-            u32 true_finishTime = OS::TicksToMilliseconds(raceFinishTime - raceStartTime);
             snprintf(reportJson + strlen(reportJson), sizeof(reportJson) - strlen(reportJson),
                      "{\"pid\":%u,\"finish_time_ms\":%u,\"character_id\":%u,\"kart_id\":%u",
                      pid, finishTime, character, kart);
@@ -166,14 +144,14 @@ void GetTimestamp() {
     }
 
     if(!raceFinishRecorded && raceStartTimeRecorded) {
-        if(frameCount == TIMESTAMP_INTERVAL) {
-            raceProgressTime = OS::TicksToMilliseconds(OS::GetTime());
-            Network::ReportU32("wl:mkw_race_progress_time", raceProgressTime);
-            frameCount = 0;
-        }
-        else frameCount++;
+        // if(frameCount == TIMESTAMP_INTERVAL) {
+        //     raceProgressTime = OS::TicksToMilliseconds(OS::GetTime());
+        //     Network::ReportU32("wl:mkw_race_progress_time", raceProgressTime);
+        //     frameCount = 0;
+        // }
+        // else frameCount++;
 
-        if (hasFinished()) {
+        if (raceInfo->stage == RACESTAGE_INTRO) {
             raceFinishTime = OS::TicksToMilliseconds(OS::GetTime());
             raceFinishRecorded = true;
             Network::ReportU32("wl:mkw_race_finish_time", raceFinishTime);
