@@ -43,7 +43,7 @@ void GradientUtils::GetCurrentGradient(u32& startColour, u32& endColour, Directi
             break;
         case THEMESETTING_PRESET_BLAZINGCOLD:
             startColour = 0xff2222ff;
-            endColour = 0x2222ffff;
+            endColour = 0x8888ffff; // #8888ff
             direction = Direction_Horizontal;
             break;
         case THEMESETTING_PRESET_CUSTOM: {
