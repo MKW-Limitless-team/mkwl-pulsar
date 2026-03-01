@@ -87,6 +87,9 @@ void ExpSELECTHandler::DecideTrack(ExpSELECTHandler& self) {
         if (hostVote == 0xFF) hostVote = cupsConfig->RandomizeTrack();
         self.toSendPacket.pulWinningTrack = hostVote;
         self.toSendPacket.variantIdx = cupsConfig->RandomizeVariant(static_cast<PulsarId>(hostVote));
+        ReportU32(
+            "wl:mkw_select_course", static_cast<u32>(hostVote));
+        ReportU32("wl:mkw_select_cc", static_cast<u32>(GetEngineClass(self)));
     }
     else {
         const bool isCT = system->IsContext(PULSAR_CT);
