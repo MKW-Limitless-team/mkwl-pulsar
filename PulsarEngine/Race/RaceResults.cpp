@@ -107,12 +107,12 @@ static void UpdatePoints_Hook() {
         // Build JSON
         if (hasTime) {
             snprintf(reportJson + strlen(reportJson), sizeof(reportJson) - strlen(reportJson),
-                     "{\"pid\":%u,\"finish_time_ms\":%u,\"character_id\":%u,\"kart_id\":%u",
-                     pid, finishTime, character, kart);
+                     "{\"pid\":%u,\"finish_time_ms\":%u,\"character_id\":%u,\"kart_id\":%u,\"player_count\":%u",
+                     pid, finishTime, character, kart, playerCount);
         } else {
             snprintf(reportJson + strlen(reportJson), sizeof(reportJson) - strlen(reportJson),
-                     "{\"pid\":%u,\"finish_time_ms\":null,\"character_id\":%u,\"kart_id\":%u",
-                     pid, character, kart);
+                     "{\"pid\":%u,\"finish_time_ms\":null,\"character_id\":%u,\"kart_id\":%u,\"player_count\":%u",
+                     pid, character, kart, playerCount);
         }
     }
 
