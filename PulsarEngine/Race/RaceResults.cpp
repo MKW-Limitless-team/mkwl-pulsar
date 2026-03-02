@@ -151,7 +151,7 @@ void GetTimestamp() {
         // }
         // else frameCount++;
 
-        if (raceInfo->stage == RACESTAGE_INTRO) {
+        if (raceInfo->stage == RACESTAGE_FINISHED) {
             raceFinishTime = OS::TicksToMilliseconds(OS::GetTime());
             raceFinishRecorded = true;
             Network::ReportU32("wl:mkw_race_finish_time", raceFinishTime);
