@@ -1,5 +1,5 @@
-#ifndef _GRADIENT_UTILS_
-#define _GRADIENT_UTILS_
+#ifndef _RACEHUDCOLOUR_
+#define _RACEHUDCOLOUR_
 #include <kamek.hpp>
 #include <Settings/Settings.hpp>
 
@@ -7,7 +7,7 @@ namespace Pulsar {
 namespace UI {
 
 // Utility class for gradient colour management
-class GradientUtils {
+class RaceHUDColour {
 public:
     enum Direction {
         Direction_Vertical,

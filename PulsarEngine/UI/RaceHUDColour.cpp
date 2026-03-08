@@ -1,4 +1,4 @@
-#include <UI/CtrlRaceBase/GradientUtils.hpp>
+#include <UI/RaceHUDColour.hpp>
 
 namespace Pulsar {
 namespace UI {
@@ -27,7 +27,7 @@ static const char* paneNames[] = {
     "Stick", "StickBackdrop"
 };
 
-void GradientUtils::GetCurrentGradient(u32& startColour, u32& endColour, Direction& direction) {
+void RaceHUDColour::GetCurrentGradient(u32& startColour, u32& endColour, Direction& direction) {
     const int presetSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_THEME, SETTINGTHEME_RADIO_PRESET);
 
     switch (presetSetting) {
@@ -63,7 +63,7 @@ void GradientUtils::GetCurrentGradient(u32& startColour, u32& endColour, Directi
     }
 }
 
-u32 GradientUtils::GetColourFromSetting(int colourSetting) {
+u32 RaceHUDColour::GetColourFromSetting(int colourSetting) {
     // Convert the colour setting value to actual RGBA colour
     switch (colourSetting) {
         case THEMESETTING_COLOUR_BLACK:     return 0x000000ff;
@@ -86,7 +86,7 @@ u32 GradientUtils::GetColourFromSetting(int colourSetting) {
     }
 }
 
-void GradientUtils::SetPaneGradient(nw4r::lyt::Pane* pane, u32 startColour, u32 endColour, Direction direction){
+void RaceHUDColour::SetPaneGradient(nw4r::lyt::Pane* pane, u32 startColour, u32 endColour, Direction direction){
     if (!pane) return;
     
     nw4r::lyt::Picture* pic = static_cast<nw4r::lyt::Picture*>(pane);
@@ -123,7 +123,7 @@ void GradientUtils::SetPaneGradient(nw4r::lyt::Pane* pane, u32 startColour, u32 
 static u32 prevControlCount = 0;
 
 // Apply gradient colours to race HUD panes
-void GradientUtils::ApplyRaceHUDColours() {
+void RaceHUDColour::ApplyRaceHUDColours() {
     
     // Get current gradient colours from theme settings
     u32 startColour, endColour;
@@ -187,9 +187,9 @@ void GradientUtils::ApplyRaceHUDColours() {
 }
 
 // Register hook to apply race HUD colours every frame during race
-RaceFrameHook RaceHUDColourHook(GradientUtils::ApplyRaceHUDColours);
+RaceFrameHook RaceHUDColourHook(RaceHUDColour::ApplyRaceHUDColours);
 
-// kmBranch(0x80857ac4, GradientUtils::ApplyRaceHUDColours); // end of RaceHUD::AfterControlUpdate
+// kmBranch(0x80857ac4, RaceHUDColour::ApplyRaceHUDColours); // end of RaceHUD::AfterControlUpdate
 
 void ResetCount() { prevControlCount = 0; }
 RaceLoadHook ResetCountHook(ResetCount);
