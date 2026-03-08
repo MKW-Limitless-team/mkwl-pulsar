@@ -1433,6 +1433,11 @@ BeforeExitAnimations__Q25Pages4MenuFv = 0x80838a78
 HandleStartPress__Q25Pages4MenuFUi = 0x80838b14
 __vt__Q25Pages4Menu = 0x808d8d78
 
+#Multiplayer Menu
+CreateExternalControl__Q25Pages11MultiPlayerFUi = 0x8084d260
+OnButtonClick__Q25Pages11MultiPlayerFR10PushButtonUi = 0x8084d4dc
+OnExternalButtonSelect__Q25Pages11MultiPlayerFR10PushButtonUi = 0x8084d6fc
+
 #BattleKartSelect
 __ct__Q25Pages16BattleKartSelectFv = 0x80628e3c
 OnInit__Q25Pages16BattleKartSelectFv = 0x8083a1e4

@@ -70,7 +70,6 @@ void Mgr::CalcWouldBeKnockedOut() {
     }
 
     // Check if this is a KO race
-    const bool force1v1Final = System::sInstance->IsContext(Pulsar::PULSAR_KOFINAL) == KOSETTING_FINAL_ALWAYS;
     const u32 currentRaceCount = SectionMgr::sInstance->sectionParams->onlineParams.currentRaceNumber + 1;
     const bool isKoRace = currentRaceCount % this->racesPerKO == 0;
 
@@ -78,10 +77,6 @@ void Mgr::CalcWouldBeKnockedOut() {
         // Calculate how many players to KO
         s32 roundKOs = this->koPerRace;
         const s32 remainingPlayersAfter = playerCount - roundKOs;
-
-        if (remainingPlayersAfter < 2 && force1v1Final) {
-            roundKOs = playerCount - 2;
-        }
 
         // Sort players by score/position (ascending)
         qsort(players, playerCount, sizeof(PlayerPosition),
