@@ -1888,7 +1888,6 @@ TimerToTextInfo__FRC5TimerRQ24Text4Info = 0x808608e4
 Real_DWCi_Auth_SendRequest = 0x800ed6ec
 s_auth_work = 0x8038633c
 s_auth_error = 0x802f1cB8
-# WWFC_CUSTOM_REGION is defined above at 0x80005efc
 
 # NHTTP function symbols
 NHTTPCreateRequest__FPCciPvUiPvPv = 0x801d8ff8
@@ -1902,4 +1901,5 @@ NHTTPGetAllResponseHeaders = 0x801d6600
 gpiAppendStringToBuffer__2GPFPPQ22GP10ConnectionPQ22GP7IBufferPCc = 0x800ff014
 gpiProcess__2GPFPPQ22GP10Connectioni = 0x800fcfbc
 
-
+beginFrame= 0x8020fe24
+Update__20GameScreenEffectsMgrFv = 0x8054f1b0
