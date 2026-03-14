@@ -305,7 +305,7 @@
 
   8000  = Input Display
   8001  = Theme
-  8002  = Direction
+  8002  = Gradient
   
   8010  = Disabled
   8011  = Enabled
@@ -338,7 +338,7 @@
   8713  = Cyan
   8714  = Grey
   8715  = Green
-  8716  = Indigo
+  8716  = Light Blue
   8717  = Lime
   8718  = Magenta
   8719  = Orange
@@ -355,7 +355,7 @@
   8723  = Cyan
   8724  = Grey
   8725  = Green
-  8726  = Indigo
+  8726  = Light Blue
   8727  = Lime
   8728  = Magenta
   8729  = Orange
