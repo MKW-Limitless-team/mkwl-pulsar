@@ -158,7 +158,10 @@ void GetTimestamp() {
         }
     }
 
-    Network::PumpGPI(); // Force flush the buffer every frame for accurate timing
+    if(raceInfo->stage == RACESTAGE_INTRO || raceInfo->stage == RACESTAGE_FINISHED) {
+        Network::PumpGPI(); // Force flush the buffer every frame for accurate timing
+    }
+    
 }
 
 RaceFrameHook raceTimestampsHook(GetTimestamp);
