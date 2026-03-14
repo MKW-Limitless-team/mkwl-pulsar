@@ -66,13 +66,13 @@ void RaceHUDColour::GetCurrentGradient(u32& startColour, u32& endColour, Directi
 u32 RaceHUDColour::GetColourFromSetting(int colourSetting) {
     // Convert the colour setting value to actual RGBA colour
     switch (colourSetting) {
-        case THEMESETTING_COLOUR_BLACK:     return 0x000000ff;
-        case THEMESETTING_COLOUR_BLUE:      return 0x7979ffff;
+        case THEMESETTING_COLOUR_BLACK:     return 0x222222ff;
+        case THEMESETTING_COLOUR_BLUE:      return 0x0000ffff;
         case THEMESETTING_COLOUR_BROWN:     return 0x8b4513ff;
         case THEMESETTING_COLOUR_CYAN:      return 0x00ffffff;
         case THEMESETTING_COLOUR_GREY:      return 0x808080ff;
         case THEMESETTING_COLOUR_GREEN:     return 0x008000ff;
-        case THEMESETTING_COLOUR_INDIGO:    return 0x4b0082ff;
+        case THEMESETTING_COLOUR_LIGHTBLUE: return 0x6969ffff;
         case THEMESETTING_COLOUR_LIME:      return 0x00ff00ff;
         case THEMESETTING_COLOUR_MAGENTA:   return 0xff00ffff;
         case THEMESETTING_COLOUR_ORANGE:    return 0xffa500ff;
