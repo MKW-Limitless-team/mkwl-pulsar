@@ -147,6 +147,7 @@
   3001	= CT Layout
   3002	= Music
   3003  = Hard CPU
+  3004  = Vehicle Info
   3010	= Disabled
   3011	= Enabled
   3020	= Default
@@ -156,6 +157,8 @@
   3032  = Disable Race
   3040  = Disabled
   3041  = Enabled
+  3050  = Disabled
+  3051  = Enabled
 
   3100	= Menus will animate at the default speed.
   3101	= Removes the animation on button press.
@@ -164,6 +167,8 @@
   3300	= Default music behaviour.
   3301	= Disables all music.
   3302	= Disables only race BRSTMs.
+  3500  = Don't show the vehicle info.
+  3501  = Show vehicle info next to the name.
   3700	= Boot To Limitlink
   3710	= Disabled
   3711	= License 1
@@ -365,4 +370,3 @@
   872d  = Teal
   872e  = White
   872f  = Yellow
-  
