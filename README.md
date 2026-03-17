@@ -6,7 +6,7 @@ The Pulladium fork exists to continue development of Pulsar, and to provide new 
 
 ## New features
 
-- NinjaWFC support (thanks mkwcat, ZPL, Saucy and ImZeraora!)
+- WiiLink WFC support (thanks mkwcat!)
 - Local multiplayer settings button (thanks Toadette Hack Fan!)
 
 ## Fixes from original Pulsar

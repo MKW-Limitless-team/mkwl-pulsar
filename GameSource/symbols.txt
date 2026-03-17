@@ -16,6 +16,7 @@ strcmp = 0x8001329c
 strchr = 0x800133f8
 strtok = 0x800134cc
 strstr = 0x800135f0
+strtoul = 0x800152a8
 swprintf = 0x80017814
 wcslen = 0x80017998
 wcsncpy = 0x800179d0
@@ -140,11 +141,14 @@ CloseConnectionHard__3DWCFUc = 0x800d2000
 SendMatchCommand__3DWCFQ23DWC12MatchCommandUiUiUsPvUi = 0x800dbd38
 SetRecvBuffer__3DWCFUcPvi = 0x800e8750
 Patch_AuthServerOverride = 0x800ecaac
+Real_DWCi_Auth_SendRequest = 0x800ed6ec
 Patch_HostHeader = 0x800ed868
 Patch_WiimmfiHook1 = 0x800ee3a0
+s_auth_error = 0x802f1cB8
 loginRegion__3DWC = 0x80384fd0
 DWC_AuthServer = 0x80386338
-authServer__3DWC = 0x80386338 
+authServer__3DWC = 0x80386338
+s_auth_work = 0x8038633c
 
 #GHTTP
 PostAddFileFromMemoryA__5GHTTPFPPQ25GHTTP7GHIPostPCcPCviPCcPCc = 0x80113944
@@ -1882,9 +1886,9 @@ __ptmf_test = 0x800213e4
 Real_DWCi_Auth_SendRequest = 0x800ed6ec
 s_auth_work = 0x8038633c
 s_auth_error = 0x802f1cB8
-NHTTPDestroyResponse__5NHTTPFPv = 0x801d92f8
-NHTTPSendRequestAsync__5NHTTPFPv = 0x801d925c
-NHTTPCreateRequest__5NHTTPFPCciPvUiPvPv = 0x801d8ff8
+DestroyResponse__5NHTTPFPv = 0x801d92f8
+SendRequestAsync__5NHTTPFPv = 0x801d925c
+CreateRequest__5NHTTPFPCciPvUiPvPv = 0x801d8ff8
 sprintf = 0x80011a2c
 
 HasPlayerFinished__12CtrlRaceTimeFUc = 0x807f82bc

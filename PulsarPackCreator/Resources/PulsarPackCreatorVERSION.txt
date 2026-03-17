@@ -9,7 +9,7 @@ Creator Changes:
 -Removed auto updater (for now)
 
 Engine Changes:
--mkwcat, ZPL, Saucy and ImZeraora: NinjaWFC support
+-mkwcat: WiiLink WFC support
 -Toadette Hack Fan: Fixed issues with tracks containing LEX files causing them to not work properly
 -ZPL: Fixed many bugs and stability issues with KO mode
 -BlueLeopard: Fixed an issue causing 200cc's max speed to be higher than intended. (This behaviour can be reverted to prevent ghost desyncs if preferred)

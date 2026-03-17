@@ -2,8 +2,10 @@
 #define _NHTTP_
 #include <types.hpp>
 
-namespace NHTTP {
-enum Error {
+namespace NHTTP
+{
+enum Error
+{
     NHTTP_ERROR_NONE = 0,
     NHTTP_ERROR_ALLOC = 1,
     NHTTP_ERROR_TOOMANYREQ = 2,
@@ -17,27 +19,28 @@ enum Error {
     NHTTP_ERROR_MAX
 };
 
-enum ReqMethod {
+enum ReqMethod
+{
     NHTTP_REQMETHOD_GET,
     NHTTP_REQMETHOD_POST,
     NHTTP_REQMETHOD_HEAD,
     NHTTP_REQMETHOD_MAX
 };
-struct Req {};
-struct Res {};
-BOOL AddPostDataAscii(Req* req, char* label, char* value); //801d9198
-int GetBodyAll(Res* res, char** value); //801d937c
+struct Req
+{
+};
+struct Res
+{
+};
 
-s32 NHTTPStartup(void* alloc, void* free, u32 param_3);
+s32 Startup( void *alloc, void *free, u32 param_3 );
+void *CreateRequest( const char *url, int param_2, void *buffer, u32 length, void *callback,
+        void *userdata );
+s32 SendRequestAsync( void *request );
+s32 DestroyResponse( void *response );
 
-void* NHTTPCreateRequest(
-    const char* url, int param_2, void* buffer, u32 length, void* callback,
-    void* userdata
-);
+BOOL AddPostDataAscii( Req *req, char *label, char *value ); // 801d9198
+int GetBodyAll( Res *res, char **value );                    // 801d937c
 
-s32 NHTTPSendRequestAsync(void* request);
-
-s32 NHTTPDestroyResponse(void* response);
-} //namespace NHTTP
+} // namespace NHTTP
 #endif
-

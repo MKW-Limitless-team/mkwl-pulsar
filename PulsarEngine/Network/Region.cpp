@@ -2,7 +2,6 @@
 #include <core/rvl/DWC/DWC.hpp>
 #include <PulsarSystem.hpp>
 #include <Settings/Settings.hpp>
-#include <Network/WiiLink.hpp>
 #include <Network/Network.hpp>
 #include <MarioKartWii/RKNet/RKNetController.hpp>
 
@@ -11,9 +10,9 @@ namespace Network {
 // Region Patch (Leseratte)
 
 static void PatchLoginRegion() {
-    WWFC_CUSTOM_REGION = System::sInstance->GetInfo().GetWiilinkRegion();
+    u32 region = System::sInstance->GetInfo().GetWiilinkRegion();
     char path[0x9];
-    snprintf(path, 0x9, "%08d", System::sInstance->GetInfo().GetWiilinkRegion() + 100000);
+    snprintf(path, 0x9, "%08d", region + 100000);
     for (int i = 0; i < 8; ++i) {
         DWC::loginRegion[i] = path[i];
     }
