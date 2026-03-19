@@ -3,6 +3,7 @@
 #include <MarioKartWii/Archive/ArchiveMgr.hpp>
 #include <PulsarSystem.hpp>
 #include <Gamemodes/KO/KOMgr.hpp>
+#include <Network/GPReport.hpp>
 #include <Network/Network.hpp>
 #include <Network/PacketExpansion.hpp>
 #include <Network/PulSELECT.hpp>
@@ -86,6 +87,9 @@ void ExpSELECTHandler::DecideTrack(ExpSELECTHandler& self) {
         if (hostVote == 0xFF) hostVote = cupsConfig->RandomizeTrack();
         self.toSendPacket.pulWinningTrack = hostVote;
         self.toSendPacket.variantIdx = cupsConfig->RandomizeVariant(static_cast<PulsarId>(hostVote));
+        ReportU32(
+            "wl:mkw_select_course", static_cast<u32>(hostVote));
+        ReportU32("wl:mkw_select_cc", static_cast<u32>(GetEngineClass(self)));
     }
     else {
         const bool isCT = system->IsContext(PULSAR_CT);
@@ -143,6 +147,10 @@ void ExpSELECTHandler::DecideTrack(ExpSELECTHandler& self) {
             system->netMgr.lastTracks[system->netMgr.curBlockingArrayIdx] = vote;
             system->netMgr.curBlockingArrayIdx = (system->netMgr.curBlockingArrayIdx + 1) % system->GetInfo().GetTrackBlocking();
         }
+
+        ReportU32(
+            "wl:mkw_select_course", static_cast<u32>(vote));
+        ReportU32("wl:mkw_select_cc", static_cast<u32>(GetEngineClass(self)));
     }
 }
 kmCall(0x80661490, ExpSELECTHandler::DecideTrack);
@@ -185,7 +193,7 @@ static void DecideCC(ExpSELECTHandler& handler) {
 
     u8 ccClass = 1; //1 100, 2 150, 3 mirror
 
-    if (roomType == RKNet::ROOMTYPE_VS_WW) {
+    if (roomType == RKNet::ROOMTYPE_VS_WW || roomType == RKNet::ROOMTYPE_VS_REGIONAL) {
         // Worldwide logic - forced 150cc to prevent 200cc from taking effect
         ccClass = 2;
     } else if (system->IsContext(PULSAR_CT)) {

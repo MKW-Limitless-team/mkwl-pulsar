@@ -1,6 +1,5 @@
 #include <MarioKartWii/Kart/KartManager.hpp>
 #include <UI/CtrlRaceBase/Speedometer.hpp>
-#include <Settings/Settings.hpp>
 
 namespace Pulsar {
 namespace UI {
@@ -55,7 +54,7 @@ void CtrlRaceSpeedo::Init() {
     this->HudSlotColorEnable("speed4", true);
     this->HudSlotColorEnable("speed5", true);
     this->HudSlotColorEnable("speed6", true);
-    this->HudSlotColorEnable("kmh", true);
+    this->HudSlotColorEnable("kmh", true);    
     LayoutUIControl::Init();
     return;
 }
@@ -83,7 +82,7 @@ void CtrlRaceSpeedo::OnUpdate() {
     u32 dot = digits >= 1 ? 11 : 10;
     u32 tenths = digits >= 1 ? speedValue % 1000 / 100 : 10;
     u32 hundredths = digits >= 2 ? speedValue % 100 / 10 : 10;
-    u32 thousandths = digits == 3 ? speedValue % 100 / 10 : 10;
+    u32 thousandths = digits == 3 ? speedValue % 10 / 1 : 10;
 
     if(speedValue < 10000) { //shift everything by 2 to the left
         hundreds = units;

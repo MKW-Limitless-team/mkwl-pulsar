@@ -2,6 +2,7 @@
 #define _PULSOM_
 #include <kamek.hpp>
 #include <UI/CtrlRaceBase/CustomCtrlRaceBase.hpp>
+#include <Settings/Settings.hpp>
 
 //Simple speedometer that uses TPLs instead of text because the default font numbers have a very ugly black outline
 namespace Pulsar {

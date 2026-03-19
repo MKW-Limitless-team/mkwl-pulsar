@@ -8,10 +8,10 @@ namespace Pulsar {
 namespace Network {
 
 void Report(const char* key, const char* string) {
+    if (DWC::MatchControl::sInstance == nullptr) return;
     GP::Connection** connection = DWC::MatchControl::sInstance->gpConnection;
-    if (connection == nullptr) {
-        return;
-    }
+    if (connection == nullptr || *connection == nullptr) return;
+    
 
     GP::IConnection* iconnection = reinterpret_cast<GP::IConnection*>(*connection);
 
@@ -35,6 +35,17 @@ void ReportU32(const char* key, u32 uint) {
     }
 
     Report(key, buffer);
+}
+
+void PumpGPI()
+{
+    if (DWC::MatchControl::sInstance == nullptr) return;
+    
+    GP::Connection** connection = DWC::MatchControl::sInstance->gpConnection;
+    if (connection == nullptr || *connection == nullptr) return;
+    
+    // Non-blocking pump
+    GP::gpiProcess(connection, 0);
 }
 
 }  // namespace Network

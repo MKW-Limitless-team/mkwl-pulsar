@@ -147,6 +147,7 @@ loginRegion__3DWC = 0x80384fd0
 DWC_AuthServer = 0x80386338
 authServer__3DWC = 0x80386338 
 sInstance__Q23DWC12MatchControl = 0x8038630C
+CreateFriendKey__3DWCFPCQ23DWC11AccUserData = 0x800ec6bc
 
 #GHTTP
 PostAddFileFromMemoryA__5GHTTPFPPQ25GHTTP7GHIPostPCcPCviPCcPCc = 0x80113944
@@ -904,6 +905,7 @@ ScheduleDisconnection__7SectionFv = 0x80623054
 CreatePageById__7SectionF6PageId = 0x80623390
 CreateSectionPages__7SectionF9SectionId = 0x8062c3a4
 AddInitialLayers__7SectionF9SectionId = 0x80630094
+Update__7SectionFv = 0x806224f8
 
 #RKSYSRequester
 NotifyNewLicenseContent__14RKSYSRequesterFv = 0x80621410
@@ -1749,7 +1751,9 @@ DeployBlooper__Q24Item8GessoMgrFUs = 0x807a9128
 #ItemSlot
 DecideItem__Q24Item12ItemSlotDataFUsUcbbPQ24Item6Player = 0x807bb42c
 DecideRouletteItem__Q24Item12ItemSlotDataFUsUc6ItemIdb = 0x807bb8d0
+PostProcessVSTable__Q24Item12ItemSlotDataFPQ34Item12ItemSlotData13Probabilities = 0x807bad20
 itemSlotData = 0x809c3670
+sInstance__Q24Item12ItemSlotDataFv = 0x807ba650
 
 #Inventory
 Update__Q24Item15PlayerInventoryFv = 0x807bc6e8
@@ -1771,6 +1775,7 @@ GetRaceinfoRandom__9DriverMgrFv = 0x807bd718
 sInstance__9DriverMgr = 0x809c23f8
 isOnlineRace__9DriverMgr = 0x809c38b9
 isTT__9DriverMgr = 0x809c38bc
+timers__9DriverMgr = 0x809c38c0
 
 
 ##OBJECTS
@@ -1883,7 +1888,6 @@ TimerToTextInfo__FRC5TimerRQ24Text4Info = 0x808608e4
 Real_DWCi_Auth_SendRequest = 0x800ed6ec
 s_auth_work = 0x8038633c
 s_auth_error = 0x802f1cB8
-# WWFC_CUSTOM_REGION is defined above at 0x80005efc
 
 # NHTTP function symbols
 NHTTPCreateRequest__FPCciPvUiPvPv = 0x801d8ff8
@@ -1895,5 +1899,7 @@ NHTTPGetBody = 0x801d6500
 NHTTPGetAllResponseHeaders = 0x801d6600
 
 gpiAppendStringToBuffer__2GPFPPQ22GP10ConnectionPQ22GP7IBufferPCc = 0x800ff014
+gpiProcess__2GPFPPQ22GP10Connectioni = 0x800fcfbc
 
-
+beginFrame= 0x8020fe24
+Update__20GameScreenEffectsMgrFv = 0x8054f1b0
