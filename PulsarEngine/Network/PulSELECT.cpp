@@ -191,22 +191,23 @@ static void DecideCC(ExpSELECTHandler& handler) {
     const RKNet::RoomType roomType = controller->roomType;
     const u8 ccSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_CC);
 
-    u8 ccClass = 1; //1 100, 2 150, 3 mirror
+    u8 ccClass = 2; //1 100, 2 150, 3 mirror
 
-    if (roomType == RKNet::ROOMTYPE_VS_WW || roomType == RKNet::ROOMTYPE_VS_REGIONAL) {
+    if (roomType == RKNet::ROOMTYPE_VS_WW || roomType == RKNet::ROOMTYPE_VS_REGIONAL || roomType == RKNet::ROOMTYPE_JOINING_WW || roomType == RKNet::ROOMTYPE_JOINING_REGIONAL) {
         // Worldwide logic - forced 150cc to prevent 200cc from taking effect
         ccClass = 2;
-    } else if (system->IsContext(PULSAR_CT)) {
+    } else if (roomType == RKNet::ROOMTYPE_FROOM_HOST) {
         // CT logic
-        if (roomType == RKNet::ROOMTYPE_VS_REGIONAL
-            || roomType == RKNet::ROOMTYPE_FROOM_HOST && ccSetting == HOSTSETTING_CC_NORMAL) {
-            Random random;
-            const u32 result = random.NextLimited(100);
-            u32 prob100 = system->GetInfo().GetProb100();
-            u32 prob150 = system->GetInfo().GetProb150();
-            if (result < 100 - (prob100 + prob150)) ccClass = 3;
-            else if (result < 100 - prob100) ccClass = 2;
+        if (ccSetting == HOSTSETTING_CC_NORMAL) {
+            // Random random;
+            // const u32 result = random.NextLimited(100);
+            // u32 prob100 = system->GetInfo().GetProb100();
+            // u32 prob150 = system->GetInfo().GetProb150();
+            // if (result < 100 - (prob100 + prob150)) ccClass = 3;
+            // else if (result < 100 - prob100) ccClass = 2;
+            ccClass = 2;
         }
+        else if (ccSetting == HOSTSETTING_CC_100) ccClass = 1;
         else if (ccSetting == HOSTSETTING_CC_150) ccClass = 2;
         else if (ccSetting == HOSTSETTING_CC_MIRROR) ccClass = 3;
     } else {
@@ -216,12 +217,13 @@ static void DecideCC(ExpSELECTHandler& handler) {
         else {
             // For regional, use random if normal
             if (roomType == RKNet::ROOMTYPE_VS_REGIONAL && ccSetting == HOSTSETTING_CC_NORMAL) {
-                Random random;
-                const u32 result = random.NextLimited(100);
-                u32 prob100 = system->GetInfo().GetProb100();
-                u32 prob150 = system->GetInfo().GetProb150();
-                if (result < 100 - (prob100 + prob150)) ccClass = 3;
-                else if (result < 100 - prob100) ccClass = 2;
+                // Random random;
+                // const u32 result = random.NextLimited(100);
+                // u32 prob100 = system->GetInfo().GetProb100();
+                // u32 prob150 = system->GetInfo().GetProb150();
+                // if (result < 100 - (prob100 + prob150)) ccClass = 3;
+                // else if (result < 100 - prob100) ccClass = 2;
+                ccClass = 2;
             }
         }
     }
