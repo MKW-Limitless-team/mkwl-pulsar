@@ -167,8 +167,10 @@
   3300	= Default music behaviour.
   3301	= Disables all music.
   3302	= Disables only race BRSTMs.
-  3500  = Don't show the vehicle info.
-  3501  = Show vehicle info next to the name.
+  3400  = CPU's will behave normally in races.
+  3401  = CPU's will be a lot faster than normal.
+  3500  = Don't show the vehicle info [RESTART GAME].
+  3501  = Show vehicle info next to the name [RESTART GAME].
   3700	= Boot To Limitlink
   3710	= Disabled
   3711	= License 1
