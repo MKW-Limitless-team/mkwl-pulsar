@@ -2,6 +2,7 @@
 #include <MarioKartWii/Audio/AudioManager.hpp>
 #include <MarioKartWii/Audio/SinglePlayer.hpp>
 #include <MarioKartWii/Audio/Other/AudioStreamsMgr.hpp>
+#include <MarioKartWii/Race/Raceinfo/Raceinfo.hpp>
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
 #include <Sound/MiscSound.hpp>
 #include <Settings/Settings.hpp>
@@ -91,9 +92,18 @@ static void ToggleMenuMusic() {
 Settings::Hook ToggleMenuMusicHook(ToggleMenuMusic);
 
 static float CheckFanfare(const Audio::SinglePlayer& singlePlayer) {
+    SectionMgr* sectionMgr = SectionMgr::sInstance;
+    // Music-disabled TT replay softlock after finish, so force a same-section reinit.
+    if(sectionMgr->curSection->sectionId == SECTION_TT_REPLAY && Raceinfo::sInstance->stage == RACESTAGE_FINISHED
+        && sectionMgr->nextSectionId == SECTION_NONE) {
+        sectionMgr->SetNextSection(sectionMgr->curSection->sectionId, 0);
+        sectionMgr->RequestSceneReinit(0, 0);
+        return -1.0f;
+    }
+
     const bool isEnabled = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_MENU, SETTINGMENU_RADIO_MUSIC) == MENUSETTING_MUSIC_DEFAULT;
     if(isEnabled) return singlePlayer.GetFanfareLength();
-    else return -1.0f;
+    return -1.0f;
 }
 kmCall(0x80857860, CheckFanfare);
 

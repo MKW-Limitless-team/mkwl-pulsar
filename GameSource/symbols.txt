@@ -917,6 +917,7 @@ HandleAllRequests__14RKSYSRequesterFv = 0x806211dc
 #SectionMgr
 LoadSection__10SectionMgrFv = 0x80634fbc
 SetNextSection__10SectionMgrF9SectionIdUi = 0x80635a3c
+RequestSceneReinit__10SectionMgrFUiUi = 0x80635b2c
 RequestSceneChange__10SectionMgrFUiUi = 0x80635ac8
 sInstance__10SectionMgr = 0x809c1e38
 
