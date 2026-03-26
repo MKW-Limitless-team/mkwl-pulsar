@@ -2,7 +2,7 @@
 name: Bug report
 about: Create a report to help us improve Limitless
 title: ''
-labels: ''
+labels: bug
 assignees: ''
 
 ---
@@ -28,3 +28,5 @@ If applicable, add screenshots to help explain your problem.
  - OS: [e.g. Windows 11]
 
 Add any other context about the problem here.
+
+Add Crash.pul file if applicable.
