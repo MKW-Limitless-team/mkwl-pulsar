@@ -79,10 +79,8 @@ enum OTTSettings {
 
 enum KOSettings {
     SETTINGKO_ENABLED = 0,
-    SETTINGKO_FINAL = 1,
     SETTINGKO_KOPERRACE = 0 + 6,
     SETTINGKO_RACESPERKO = 1 + 6,
-
 };
 
 enum ThemeSettings {

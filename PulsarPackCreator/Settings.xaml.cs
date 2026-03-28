@@ -11,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
+using System.Windows.Resources;
 using static Pulsar_Pack_Creator.MsgWindow;
 
 namespace Pulsar_Pack_Creator
@@ -21,7 +22,8 @@ namespace Pulsar_Pack_Creator
         {
             Dark_Mode,
             Light_Mode,
-            Space_Mode
+            Space_Mode,
+            Moonview_Mode
         }
 
         public SettingsWindow()
@@ -31,7 +33,7 @@ namespace Pulsar_Pack_Creator
 
         public void Load()
         {
-            AutoUpdater.IsChecked = Pulsar_Pack_Creator.Properties.Settings.Default.AutoUpdate;
+            //AutoUpdater.IsChecked = Pulsar_Pack_Creator.Properties.Settings.Default.AutoUpdate;
             ExitRemindBox.IsChecked = Pulsar_Pack_Creator.Properties.Settings.Default.ExitRemind;
             ColorModeBox.SelectedIndex = Pulsar_Pack_Creator.Properties.Settings.Default.ColorMode;
             Show();
@@ -46,7 +48,7 @@ namespace Pulsar_Pack_Creator
         {
             if ((sender as CheckBox).IsKeyboardFocused)
             {
-                Pulsar_Pack_Creator.Properties.Settings.Default.AutoUpdate = !Pulsar_Pack_Creator.Properties.Settings.Default.AutoUpdate;
+                //Pulsar_Pack_Creator.Properties.Settings.Default.AutoUpdate = !Pulsar_Pack_Creator.Properties.Settings.Default.AutoUpdate;
             }
         }
 
@@ -59,9 +61,11 @@ namespace Pulsar_Pack_Creator
 
         private void OnUpdateClick(object sender, RoutedEventArgs e)
         {
-            bool hasUpdate = TryUpdate();
-            if (!hasUpdate) MsgWindow.Show("You are already using the latest version.", this);
-        }
+            Process.Start(new ProcessStartInfo("https://github.com/TornadoToss/Pulladium/releases") { UseShellExecute = true });
+
+			//bool hasUpdate = TryUpdate();
+			//if (!hasUpdate) MsgWindow.Show("You are already using the latest version.", this);
+		}
 
         private void OnSaveSettingsClick(object sender, RoutedEventArgs e)
         {
@@ -70,17 +74,23 @@ namespace Pulsar_Pack_Creator
 
         public static bool GetChangelog(out string changelog)
         {
-            try { 
-                using (HttpClient client = new HttpClient())
-                {
-                    changelog = client.GetStringAsync("https://pulsar.brawlbox.co.uk/PulsarPackCreatorVERSION.txt").Result; ;
-                    return true;
-                }
-            }
-            catch(Exception ex)
-            {
-                changelog = ex.Message;
-                return false;        }
+            Uri uri = new Uri("pack://application:,,,/Resources/PulsarPackCreatorVERSION.txt");
+            StreamResourceInfo res = Application.GetResourceStream(uri);
+            StreamReader sr = new StreamReader(res.Stream);
+            changelog = sr.ReadToEnd();
+            return true;
+
+            //try { 
+            //    using (HttpClient client = new HttpClient())
+            //    {
+            //        changelog = client.GetStringAsync("https://pulsar.brawlbox.co.uk/PulsarPackCreatorVERSION.txt").Result; ;
+            //        return true;
+            //    }
+            //}
+            //catch(Exception ex)
+            //{
+            //    changelog = ex.Message;
+            //    return false;        }
         }
 
         public static bool GetVersion(out string version)
@@ -188,6 +198,12 @@ namespace Pulsar_Pack_Creator
             bool ret = GetChangelog(out string changelogRaw);
 
            if (ret) {
+                if (oldVersion == "v0")
+                {
+					MsgWindow.Show(changelogRaw);
+                    return;
+				}
+
                 string[] allChangelogs = changelogRaw.Split("\r\n");
                 string changelog = allChangelogs[0];
                 for (int i = 1; i < allChangelogs.Length; i++)
@@ -206,6 +222,11 @@ namespace Pulsar_Pack_Creator
 
                 MsgWindow.Show(changelog);
             }
+        }
+
+        private void OnChangelogsClick(object sender, EventArgs e)
+        {
+            DisplayChangelog("v0");
         }
 
         private void OnExitRemindToggle(object sender, RoutedEventArgs e)
@@ -289,6 +310,12 @@ namespace Pulsar_Pack_Creator
                 image.EndInit();
                 Application.Current.Resources["imageBg"] = image;
             }
+            else if (mode == ColorMode.Moonview_Mode)
+            {
+				image.UriSource = new Uri("pack://application:,,,/Resources/moonview.png");
+				image.EndInit();
+				Application.Current.Resources["imageBg"] = image;
+			}
             else
             {
                 image.UriSource = new Uri("pack://application:,,,/Resources/transparent.png");

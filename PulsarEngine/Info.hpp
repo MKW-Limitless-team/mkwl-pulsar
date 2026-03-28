@@ -12,10 +12,11 @@ public:
     inline u32  GetKey() const { return this->roomKey; }
     inline bool HasTrophies() const { return this->hasTTTrophies; }
     inline bool Has200cc() const { return this->has200cc; }
+    inline bool HasLegacy200ccMaxSpeed() const { return this->hasLegacy200ccMaxSpeed; }
     inline bool HasUMTs() const { return this->hasUMTs; }
     inline bool HasFeather() const { return this->hasFeather; }
     inline bool HasMegaTC() const { return this->hasMegaTC; }
-    inline u32 GetWiimmfiRegion() const { return this->wiimmfiRegion; }
+    inline u32 GetWiilinkRegion() const { return this->wiilinkRegion; }
     inline u32 GetProb100() const { return this->prob100cc; }
     inline u32 GetProb150() const { return this->prob150cc; }
     inline u32 GetTrackBlocking() const { return  this->trackBlocking; }
@@ -32,7 +33,7 @@ private:
     u32 roomKey; //0x0 transmitted to other players
     u32 prob100cc; //0x4
     u32 prob150cc; //0x8
-    u32 wiimmfiRegion; //0xc
+    u32 wiilinkRegion; //0xc
     u32 trackBlocking; //0x10
     bool hasTTTrophies; //0x14
     bool has200cc; //0x15
@@ -41,7 +42,8 @@ private:
     bool hasMegaTC; //0x18
     u16 cupIconCount; //0x19
     u8 chooseNextTrackTimer; //0x1b
-    u8 reservedSpace[40];
+    bool hasLegacy200ccMaxSpeed; //0x1c
+    u8 reservedSpace[39];
 };
 size_assert(Info, 0x44);
 #pragma pack(pop)
