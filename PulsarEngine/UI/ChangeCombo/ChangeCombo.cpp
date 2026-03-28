@@ -165,15 +165,6 @@ ExpCharacterSelect::ExpCharacterSelect() : rouletteCounter(-1) {
     rolledCharIdx[1] = CHARACTER_NONE;
 }
 
-void ExpCharacterSelect::OnActivate() {
-    Pages::CharacterSelect::OnActivate();
-    this->rouletteCounter = -1;
-    this->controlsManipulatorManager.inaccessible = false;
-
-    ExpVR* vrPage = SectionMgr::sInstance->curSection->Get<ExpVR>();
-    if(vrPage != nullptr) vrPage->comboButtonState = 0;
-}
-
 void ExpCharacterSelect::BeforeControlUpdate() {
     //CtrlMenuCharacterSelect::ButtonDriver* array = this->ctrlMenuCharSelect.driverButtonsArray;
     const s32 roulette = this->rouletteCounter;
