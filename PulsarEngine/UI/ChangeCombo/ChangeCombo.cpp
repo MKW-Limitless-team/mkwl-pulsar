@@ -165,6 +165,15 @@ ExpCharacterSelect::ExpCharacterSelect() : rouletteCounter(-1) {
     rolledCharIdx[1] = CHARACTER_NONE;
 }
 
+void ExpCharacterSelect::OnActivate() {
+    Pages::CharacterSelect::OnActivate();
+    this->rouletteCounter = -1;
+    this->controlsManipulatorManager.inaccessible = false;
+
+    ExpVR* vrPage = SectionMgr::sInstance->curSection->Get<ExpVR>();
+    if(vrPage != nullptr) vrPage->comboButtonState = 0;
+}
+
 void ExpCharacterSelect::BeforeControlUpdate() {
     //CtrlMenuCharacterSelect::ButtonDriver* array = this->ctrlMenuCharSelect.driverButtonsArray;
     const s32 roulette = this->rouletteCounter;
@@ -189,7 +198,10 @@ void ExpCharacterSelect::BeforeControlUpdate() {
             //array[this->rolledCharIdx].HandleSelect(0, -1);
 
         }
-        else if(roulette == 0) this->ctrlMenuCharSelect.GetButtonDriver(randomizedCharIdx[hudId])->HandleClick(hudId, -1);
+        else if(roulette == 0) {
+            this->ctrlMenuCharSelect.GetButtonDriver(randomizedCharIdx[hudId])->HandleClick(hudId, -1);
+            this->rouletteCounter = -1;
+        }
     }
 
     //array[this->randomizedCharIdx].HandleClick(0, -1);

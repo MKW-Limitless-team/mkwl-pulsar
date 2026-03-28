@@ -39,6 +39,7 @@ public:
 class ExpCharacterSelect : public Pages::CharacterSelect {
 public:
     ExpCharacterSelect();
+    void OnActivate() override;
     void BeforeControlUpdate() override;
     void OnStartPress(u32 hudSlotId) override {
         if(hudSlotId == 0) RandomizeCombo();
