@@ -21,7 +21,7 @@ extern "C"
 
 #ifndef WWFC_DOMAIN
 #ifdef WWFC_PRODUCTION
-#define WWFC_DOMAIN "wiilink24.com"
+#define WWFC_DOMAIN "wfc.blazico.nl"
 #else
 #define WWFC_DOMAIN "nwfc.wiinoma.com" // Points to localhost
 #endif

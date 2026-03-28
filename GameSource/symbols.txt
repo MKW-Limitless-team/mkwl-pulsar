@@ -126,6 +126,7 @@ busClock__2OS = 0x800000f8
 #Low Level Network
 Patch_LoginPrintHeader = 0x80276054
 # Removed Wiimmfi URL references
+Patch_WiimmfiURLs = 0x8027a404
 Patch_AuthserverHosts = 0x8027a474
 SSL_Initialised = 0x80386d4c
 
@@ -141,6 +142,7 @@ GetFriendStatusData__3DWCFPCQ23DWC13AccFriendDataPcPi = 0x800ce190
 CloseConnectionHard__3DWCFUc = 0x800d2000
 SendMatchCommand__3DWCFQ23DWC12MatchCommandUiUiUsPvUi = 0x800dbd38
 SetRecvBuffer__3DWCFUcPvi = 0x800e8750
+CreateFriendKey__3DWCFPCQ23DWC11AccUserData = 0x800ec6bc
 Patch_AuthServerOverride = 0x800ecaac
 Real_DWCi_Auth_SendRequest = 0x800ed6ec
 Patch_HostHeader = 0x800ed868
@@ -150,6 +152,8 @@ loginRegion__3DWC = 0x80384fd0
 DWC_AuthServer = 0x80386338
 authServer__3DWC = 0x80386338
 s_auth_work = 0x8038633c
+sInstance__Q23DWC12MatchControl = 0x8038630C
+gpiProcess__2GPFPPQ22GP10Connectioni = 0x800fcfbc
 
 #GHTTP
 PostAddFileFromMemoryA__5GHTTPFPPQ25GHTTP7GHIPostPCcPCviPCcPCc = 0x80113944
@@ -445,6 +449,7 @@ SHA1Init__3NETFPQ23NET11SHA1Context = 0x801d24f4
 SHA1Update__3NETFPQ23NET11SHA1ContextPCvUi = 0x801d2544
 SHA1GetDigest__3NETFPQ23NET11SHA1ContextPv = 0x801d25f8
 # Removed Wiimmfi hook 2
+Patch_WiimmfiHook2 = 0x801d4efc
 
 #NHTTP
 GetBodyAll__5NHTTPFPQ25NHTTP3ResPPc = 0x801d937c
@@ -460,6 +465,10 @@ WWFC_CUSTOM_REGION = 0x80005efc
 #SSL
 initialized__3SSL = 0x80386d4c
 SSL_Init = 0x801d6700  # Added for HTTPS support
+
+#EGG
+beginFrame = 0x8020fe24
+Update__20GameScreenEffectsMgrFv = 0x8054f1b0
 
 
 
