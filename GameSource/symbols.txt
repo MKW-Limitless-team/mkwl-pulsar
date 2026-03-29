@@ -1910,9 +1910,9 @@ __ptmf_test = 0x800213e4
 Real_DWCi_Auth_SendRequest = 0x800ed6ec
 s_auth_work = 0x8038633c
 s_auth_error = 0x802f1cB8
-DestroyResponse__5NHTTPFPv = 0x801d92f8
-SendRequestAsync__5NHTTPFPv = 0x801d925c
-CreateRequest__5NHTTPFPCciPvUiPvPv = 0x801d8ff8
+NHTTPDestroyResponse__FPv = 0x801d92f8
+NHTTPSendRequestAsync__FPv = 0x801d925c
+NHTTPCreateRequest__FPCciPvUiPvPv = 0x801d8ff8
 sprintf = 0x80011a2c
 
 HasPlayerFinished__12CtrlRaceTimeFUc = 0x807f82bc
