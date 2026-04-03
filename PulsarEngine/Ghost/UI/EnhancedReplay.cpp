@@ -33,7 +33,6 @@ static void CreateTTHUD(Section* section, PageId id) {
 kmCall(0x8062ccd4, CreateTTHUD);
 kmCall(0x8062cc5c, CreateTTHUD);
 kmCall(0x8062cc98, CreateTTHUD);
-
 static PageId TTPauseNextPage(const Pages::RaceHUD& page) {
     const SectionId sectionId = SectionMgr::sInstance->curSection->sectionId;
     if(sectionId >= SECTION_WATCH_GHOST_FROM_CHANNEL && sectionId <= SECTION_WATCH_GHOST_FROM_MENU) return PAGE_GHOST_REPLAY_PAUSE_MENU;
@@ -54,7 +53,7 @@ static bool WillGhostBeCompared(const Racedata& racedata) {
     const SectionId sectionId = sectionMgr->curSection->sectionId;
     register Timer* ghostTimer;
     asm(addi ghostTimer, r15, 0x48;);
-    if(sectionId >= SECTION_WATCH_GHOST_FROM_CHANNEL && sectionId <= SECTION_WATCH_GHOST_FROM_MENU) {
+    if(sectionId == SECTION_TT_REPLAY || (sectionId >= SECTION_WATCH_GHOST_FROM_CHANNEL && sectionId <= SECTION_WATCH_GHOST_FROM_MENU)) {
         ghostTimer->minutes = 0xFFFF; //guarantee a cheer
         return true;
     }
@@ -103,7 +102,7 @@ kmCall(0x807c7870, PatchOpacity);
 
 bool PatchIsLocalCheck(const Kart::Player& kartPlayer) {
     const SectionId sectionId = SectionMgr::sInstance->curSection->sectionId;
-    if(sectionId >= SECTION_WATCH_GHOST_FROM_CHANNEL && sectionId <= SECTION_WATCH_GHOST_FROM_MENU) return false;
+    if(sectionId == SECTION_TT_REPLAY || (sectionId >= SECTION_WATCH_GHOST_FROM_CHANNEL && sectionId <= SECTION_WATCH_GHOST_FROM_MENU)) return false;
     return kartPlayer.IsLocal();
 }
 kmCall(0x80783770, PatchIsLocalCheck);
@@ -120,9 +119,12 @@ asmFunc PatchSoundIssues() {
     ASM(
         nofralloc;
     lwz r5, 0 (r4); //Default
+    cmpwi r5, SECTION_TT_REPLAY;
+    beq + endSection;
     subi r0, r5, SECTION_WATCH_GHOST_FROM_CHANNEL;
     cmplwi r0, 2;
     bgt + end;
+endSection:
     li r5, 0x1f;
 end:;
     blr;
@@ -141,7 +143,7 @@ kmCall(0x807dc0e8, PatchMiiHeadsOpacity);
 
 static void ChangeGhostOpacity(u8 focusedPlayerIdx) {
     const SectionId id = SectionMgr::sInstance->curSection->sectionId;
-    if(id < SECTION_WATCH_GHOST_FROM_CHANNEL || id > SECTION_WATCH_GHOST_FROM_MENU) return;
+    if(id != SECTION_TT_REPLAY && (id < SECTION_WATCH_GHOST_FROM_CHANNEL || id > SECTION_WATCH_GHOST_FROM_MENU)) return;
     Kart::Manager* kartMgr = Kart::Manager::sInstance;
     for(int i = 0; i < kartMgr->playerCount; ++i) {
         u32 scnObjDrawOptionsIdx = i == focusedPlayerIdx ? 0xA : 1;

@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("Create your Pulsar distributions")]
 [assembly: AssemblyDescription("Create your Pulsar-based Mario Kart Wii CT Distributions")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Melg")]
+[assembly: AssemblyCompany("Melg, Erythtini")]
 [assembly: AssemblyProduct("Pulsar Pack Creator")]
 [assembly: AssemblyCopyright("")]
 [assembly: AssemblyTrademark("")]
@@ -29,5 +29,5 @@ using System.Runtime.InteropServices;
 //      Revision
 //
 
-[assembly: AssemblyInformationalVersion("2.0.1L")] //combined version, always increments
-[assembly: AssemblyFileVersion("2.0.1")] //Code.pul version
+[assembly: AssemblyInformationalVersion("2.1")] //combined version, always increments
+[assembly: AssemblyFileVersion("2.1")] //Code.pul version

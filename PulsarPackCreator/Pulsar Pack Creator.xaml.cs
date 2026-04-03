@@ -321,6 +321,8 @@ namespace Pulsar_Pack_Creator
                 Regs.SelectedIndex = parameters.regsMode;
                 TTTrophies.IsChecked = parameters.hasTTTrophies;
                 CC200.IsChecked = parameters.has200cc;
+                Legacy200StackPanel.Visibility = parameters.has200cc ? Visibility.Visible : Visibility.Collapsed;
+                Legacy200Speed.IsChecked = parameters.hasLegacy200ccMaxSpeed;
                 UMT.IsChecked = parameters.hasUMTs;
                 Feather.IsChecked = parameters.hasFeather;
                 MegaTC.IsChecked = parameters.hasMegaTC;
@@ -528,5 +530,5 @@ namespace Pulsar_Pack_Creator
             return true;
 
         }
-    }
+	}
 }

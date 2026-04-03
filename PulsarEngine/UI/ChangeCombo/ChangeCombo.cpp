@@ -189,7 +189,10 @@ void ExpCharacterSelect::BeforeControlUpdate() {
             //array[this->rolledCharIdx].HandleSelect(0, -1);
 
         }
-        else if(roulette == 0) this->ctrlMenuCharSelect.GetButtonDriver(randomizedCharIdx[hudId])->HandleClick(hudId, -1);
+        else if(roulette == 0) {
+            this->ctrlMenuCharSelect.GetButtonDriver(randomizedCharIdx[hudId])->HandleClick(hudId, -1);
+            this->rouletteCounter = -1;
+        }
     }
 
     //array[this->randomizedCharIdx].HandleClick(0, -1);
