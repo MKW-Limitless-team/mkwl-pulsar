@@ -104,6 +104,9 @@ void ApplyRoomSizeDistributionHook(Item::ItemSlotData* itemSlotData, Item::ItemS
         return;
     }
 
+    // Check item settings
+    if (Racedata::sInstance->racesScenario.settings.itemMode != ITEMS_BALANCED) return;
+
     u8 currentCount = sCurrentPlayerCount;
     if (currentCount != itemSlotData->playerCount) {
         sCurrentPlayerCount = static_cast<u8>(itemSlotData->playerCount);
