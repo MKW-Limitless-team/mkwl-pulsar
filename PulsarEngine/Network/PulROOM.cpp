@@ -31,38 +31,37 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
         packetHolder->packetSize += sizeof(PulROOM) - sizeof(RKNet::ROOMPacket); //this has been changed by copy so it's safe to do this
         const Settings::Mgr& settings = Settings::Mgr::Get();
 
-        const u8 koSetting = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_ENABLED) && destPacket->message == 0; //KO only enabled for normal GPs
+        const u8 koSetting = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_ENABLED) == KOSETTING_ENABLED;
+        const u8 koFinal = settings.GetSettingValue(Settings::SETTINGSTYPE_KO, SETTINGKO_FINAL) == KOSETTING_FINAL_ALWAYS;
+
         //invert mii setting as the first button is enabled, not disabled, so a value of 1 indicates disabled
         const u8 ottOnline = settings.GetSettingValue(Settings::SETTINGSTYPE_OTT, SETTINGOTT_ONLINE);
         destPacket->hostSystemContext = (ottOnline != OTTSETTING_OFFLINE_DISABLED) << PULSAR_MODE_OTT //ott
             | (ottOnline == OTTSETTING_ONLINE_FEATHER) << PULSAR_FEATHER //ott feather
             | (settings.GetSettingValue(Settings::SETTINGSTYPE_OTT, SETTINGOTT_ALLOWUMTS) ^ true) << PULSAR_UMTS //ott umts
-            | koSetting << PULSAR_MODE_KO
+            | koSetting << PULSAR_MODE_KO | koFinal << PULSAR_KOFINAL
             | (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_ALLOW_MIIHEADS) ^ true) << PULSAR_MIIHEADS
             | settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_HOSTWINS) << PULSAR_HAW;
 
         u8 raceCount;
         if (koSetting == KOSETTING_ENABLED) raceCount = 0xFE;
         else switch (settings.GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_SCROLL_GP_RACES)) {
-        case(0):  // HOSTSETTING_GP_RACES_4
-            raceCount = 3;
+        case(0x1):
+            raceCount = 7; 
             break;
-        case(1):  // HOSTSETTING_GP_RACES_8
-            raceCount = 7;
-            break;
-        case(2):  // HOSTSETTING_GP_RACES_12
+        case(0x2):
             raceCount = 11;
             break;
-        case(3):  // HOSTSETTING_GP_RACES_24
+        case(0x3):
             raceCount = 23;
             break;
-        case(4):  // HOSTSETTING_GP_RACES_32
+        case(0x4):
             raceCount = 31;
             break;
-        case(5):  // HOSTSETTING_GP_RACES_64
+        case(0x5):
             raceCount = 63;
             break;
-        case(6):  // HOSTSETTING_GP_RACES_2
+        case(0x6):
             raceCount = 1;
             break;
         default:

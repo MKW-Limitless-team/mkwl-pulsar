@@ -3,7 +3,6 @@
 #include <MarioKartWii/Archive/ArchiveMgr.hpp>
 #include <PulsarSystem.hpp>
 #include <Gamemodes/KO/KOMgr.hpp>
-#include <Network/GPReport.hpp>
 #include <Network/Network.hpp>
 #include <Network/PacketExpansion.hpp>
 #include <Network/PulSELECT.hpp>
@@ -87,9 +86,6 @@ void ExpSELECTHandler::DecideTrack(ExpSELECTHandler& self) {
         if (hostVote == 0xFF) hostVote = cupsConfig->RandomizeTrack();
         self.toSendPacket.pulWinningTrack = hostVote;
         self.toSendPacket.variantIdx = cupsConfig->RandomizeVariant(static_cast<PulsarId>(hostVote));
-        ReportU32(
-            "wl:mkw_select_course", static_cast<u32>(hostVote));
-        ReportU32("wl:mkw_select_cc", static_cast<u32>(GetEngineClass(self)));
     }
     else {
         const bool isCT = system->IsContext(PULSAR_CT);
@@ -147,10 +143,6 @@ void ExpSELECTHandler::DecideTrack(ExpSELECTHandler& self) {
             system->netMgr.lastTracks[system->netMgr.curBlockingArrayIdx] = vote;
             system->netMgr.curBlockingArrayIdx = (system->netMgr.curBlockingArrayIdx + 1) % system->GetInfo().GetTrackBlocking();
         }
-
-        ReportU32(
-            "wl:mkw_select_course", static_cast<u32>(vote));
-        ReportU32("wl:mkw_select_cc", static_cast<u32>(GetEngineClass(self)));
     }
 }
 kmCall(0x80661490, ExpSELECTHandler::DecideTrack);
@@ -185,50 +177,28 @@ kmCall(0x80644414, SetCorrectTrack);
 
 //Overwrites CC rules -> 10% 100, 65% 150, 25% mirror and/or in frooms, overwritten by host setting
 static void DecideCC(ExpSELECTHandler& handler) {
-    // Ported from Retro Rewind: Fix 200CC Worldwide bug by properly handling CC selection taking room type into account
     System* system = System::sInstance;
-    RKNet::Controller* controller = RKNet::Controller::sInstance;
-    const RKNet::RoomType roomType = controller->roomType;
-    const u8 ccSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_CC);
-
-    u8 ccClass = 2; //1 100, 2 150, 3 mirror
-
-    if (roomType == RKNet::ROOMTYPE_VS_WW || roomType == RKNet::ROOMTYPE_VS_REGIONAL || roomType == RKNet::ROOMTYPE_JOINING_WW || roomType == RKNet::ROOMTYPE_JOINING_REGIONAL) {
-        // Worldwide logic - forced 150cc to prevent 200cc from taking effect
-        ccClass = 2;
-    } else if (roomType == RKNet::ROOMTYPE_FROOM_HOST) {
-        // CT logic
-        if (ccSetting == HOSTSETTING_CC_NORMAL) {
-            // Random random;
-            // const u32 result = random.NextLimited(100);
-            // u32 prob100 = system->GetInfo().GetProb100();
-            // u32 prob150 = system->GetInfo().GetProb150();
-            // if (result < 100 - (prob100 + prob150)) ccClass = 3;
-            // else if (result < 100 - prob100) ccClass = 2;
-            ccClass = 2;
+    if (!system->IsContext(PULSAR_CT)) reinterpret_cast<RKNet::SELECTHandler&>(handler).DecideEngineClass();
+    else {
+        const u8 ccSetting = Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_HOST, SETTINGHOST_RADIO_CC);
+        RKNet::Controller* controller = RKNet::Controller::sInstance;
+        const RKNet::RoomType roomType = controller->roomType;
+        u8 ccClass = 1; //1 100, 2 150, 3 mirror
+        if (roomType == RKNet::ROOMTYPE_VS_REGIONAL
+            || roomType == RKNet::ROOMTYPE_FROOM_HOST && ccSetting == HOSTSETTING_CC_NORMAL) {
+            Random random;
+            const u32 result = random.NextLimited(100); //25
+            System* system = System::sInstance;
+            u32 prob100 = system->GetInfo().GetProb100(); //100
+            u32 prob150 = system->GetInfo().GetProb150(); //00
+            if (result < 100 - (prob100 + prob150)) ccClass = 3;
+            else if (result < 100 - prob100) ccClass = 2;
         }
-        else if (ccSetting == HOSTSETTING_CC_100) ccClass = 1;
         else if (ccSetting == HOSTSETTING_CC_150) ccClass = 2;
         else if (ccSetting == HOSTSETTING_CC_MIRROR) ccClass = 3;
-    } else {
-        // Other modes, use host setting or original logic
-        if (ccSetting == HOSTSETTING_CC_150) ccClass = 2;
-        else if (ccSetting == HOSTSETTING_CC_MIRROR) ccClass = 3;
-        else {
-            // For regional, use random if normal
-            if (roomType == RKNet::ROOMTYPE_VS_REGIONAL && ccSetting == HOSTSETTING_CC_NORMAL) {
-                // Random random;
-                // const u32 result = random.NextLimited(100);
-                // u32 prob100 = system->GetInfo().GetProb100();
-                // u32 prob150 = system->GetInfo().GetProb150();
-                // if (result < 100 - (prob100 + prob150)) ccClass = 3;
-                // else if (result < 100 - prob100) ccClass = 2;
-                ccClass = 2;
-            }
-        }
+        handler.toSendPacket.engineClass = ccClass;
     }
 
-    handler.toSendPacket.engineClass = ccClass;
 }
 kmCall(0x80661404, DecideCC);
 
