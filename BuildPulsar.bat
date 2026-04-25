@@ -19,7 +19,7 @@ SET "PULSAR=.\PulsarEngine"
 SET "CC=cw\mwcceppc.exe"
 
 :: Riivolution Destination (change as necessary)
-SET "RIIVO=C:\Users\pc\AppData\Roaming\Dolphin Emulator\Load\Riivolution\Limitless V7\Lim V7"
+SET "RIIVO=C:\Users\pc\AppData\Roaming\Dolphin Emulator\Load\Riivolution\Limitless V7.0.2\Lim V7"
 
 :: Compiler flags and folder
 SET CFLAGS=-I- -i %ENGINE% -i %GAMESOURCE% -i %PULSAR% ^
