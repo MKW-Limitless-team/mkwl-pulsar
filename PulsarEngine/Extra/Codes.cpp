@@ -1,6 +1,28 @@
 #include <kamek.hpp>
+#include <MarioKartWii/Race/RaceData.hpp>
 
 namespace Pulsar {
+    // Points Distribution Modifier [Gaberboo]
+    static const u8 customPointsRoom[12][12] = {
+        {15, 13, 11,  9,  8,  7,  6,  5,  4,  3,  2,  1},
+        {15, 13, 11,  9,  8,  7,  6,  5,  4,  3,  2,  1},
+        {15, 13, 11,  9,  8,  7,  6,  5,  4,  3,  2,  1},
+        {15, 13, 11,  9,  8,  7,  6,  5,  4,  3,  2,  1},
+        {15, 13, 11,  9,  8,  7,  6,  5,  4,  3,  2,  1},
+        {15, 13, 11,  9,  8,  7,  6,  5,  4,  3,  2,  1},
+        {15, 13, 11,  9,  8,  7,  6,  5,  4,  3,  2,  1},
+        {15, 13, 11,  9,  8,  7,  6,  5,  4,  3,  2,  1},
+        {15, 13, 11,  9,  8,  7,  6,  5,  4,  3,  2,  1},
+        {15, 13, 11,  9,  8,  7,  6,  5,  4,  3,  2,  1},
+        {15, 13, 11,  9,  8,  7,  6,  5,  4,  3,  2,  1},
+        {15, 13, 11,  9,  8,  7,  6,  5,  4,  3,  2,  1}
+    };
+
+    kmOnLoadDefCpp() {
+        memcpy((void*)Racedata::pointsRoom, customPointsRoom, sizeof(customPointsRoom));
+        return 0;
+    }
+
     // Instant Voting Roulette Decide [Ro] https://mariokartwii.com/showthread.php?tid=2123
     kmWrite32(0x80643BC4, 0x60000000);
     kmWrite32(0x80643C2C, 0x60000000);
@@ -64,4 +86,64 @@ namespace Pulsar {
     kmWrite32(0x800EE3A0, 0x2C030000);
     kmWrite32(0x800ECAAC, 0x7C7E1B78);
 
+    // Fix Offroad Affecting Star After Cannon Glitch [Ro]
+    asmFunc FixOffroadAffectingStarAfterCannonGlitch() {
+        ASM(
+            nofralloc;
+            andi. r11, r0, 0x80;
+            andis. r12, r0, 0x8000;
+            or. r0, r11, r12;
+            blr;
+        )
+    }
+    kmBranch(0x8057C3F8, FixOffroadAffectingStarAfterCannonGlitch);
+    kmPatchExitPoint(FixOffroadAffectingStarAfterCannonGlitch, 0x8057C3FC);
+
+    // Blue Shell Cooldown [Gaberboo]
+    asmFunc BlueShellCooldownHook() {
+        ASM(
+            nofralloc;
+            lis r10, 0x807b;
+            lhz r9, -0x7cd2(r10);
+            lha r8, 0x4(r10);
+            rlwinm r9, r9, 16, 0, 15;
+            lwzx r7, r9, r8;
+            li r10, 0x4b0;
+            stw r10, 0x38(r7);
+            stwu r1, -0x20(r1);
+            blr;
+        )
+    }
+    kmBranch(0x807AC634, BlueShellCooldownHook);
+    kmPatchExitPoint(BlueShellCooldownHook, 0x807AC638);
+
+    // Item Box Respawn Timer Modifier [Unnamed]
+    asmFunc ItemBoxRespawnTimerModifier() {
+        ASM(
+            nofralloc;
+            li r12, 0x69;
+            stw r12, 0xb8(r27);
+            stw r0, 0xb0(r27);
+            blr;
+        )
+    }
+    kmBranch(0x80828EDC, ItemBoxRespawnTimerModifier);
+    kmPatchExitPoint(ItemBoxRespawnTimerModifier, 0x80828EE0);
+
+    // Anti Lag/Late Start Online [Ro]
+    asmFunc AntiLagLateStartOnline() {
+        ASM(
+            nofralloc;
+            lwz r12, -0x28d8(r30);
+            lwz r12, 0xb70(r12);
+            cmpwi r12, 7;
+            blt AntiLagLateStartOnlineEnd;
+            li r3, 1;
+        AntiLagLateStartOnlineEnd:
+            cmpwi r3, 0;
+            blr;
+        )
+    }
+    kmBranch(0x80533430, AntiLagLateStartOnline);
+    kmPatchExitPoint(AntiLagLateStartOnline, 0x80533434);
 }

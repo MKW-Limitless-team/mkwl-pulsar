@@ -24,17 +24,17 @@ const char* ExpPlayerEffects::UMTNames[8] ={
 //Needed so that other players display the correct effect
 bool umtState[12]; //false = no UMT  true = UMT buff active expanding Kart::Movement just for this doesn't seem like the plan
 
-kmWrite32(0x8057ee5c, 0x2c050004); //changes >= 3 to >= 4 for UMT
-kmWrite32(0x8057ef30, 0x2c000001); //changes check from if != 2 to if = 1, so that when in a SMT the function keeps going
-kmWrite32(0x8057ef38, 0x418200A4); //ensure mtSpeedMultiplier gets reset when driftState = 1, by sending to where CreateUMT hooks
-kmWrite32(0x8057efb4, 0x48000028); //skips the SMT charge check and sends unconditionally to CreateUMT
-void CreateUMT(Kart::Movement& movement) {
-    bool isUMTs = System::sInstance->IsContext(PULSAR_UMTS);
-    const s16 smtCharge = movement.smtCharge;
-    if(smtCharge >= 550 && isUMTs) movement.driftState = 4;
-    else if(smtCharge >= 300) movement.driftState = 3;
-};
-kmBranch(0x8057efdc, CreateUMT);
+// kmWrite32(0x8057ee5c, 0x2c050004); //changes >= 3 to >= 4 for UMT
+// kmWrite32(0x8057ef30, 0x2c000001); //changes check from if != 2 to if = 1, so that when in a SMT the function keeps going
+// kmWrite32(0x8057ef38, 0x418200A4); //ensure mtSpeedMultiplier gets reset when driftState = 1, by sending to where CreateUMT hooks
+// kmWrite32(0x8057efb4, 0x48000028); //skips the SMT charge check and sends unconditionally to CreateUMT
+// void CreateUMT(Kart::Movement& movement) {
+//     bool isUMTs = System::sInstance->IsContext(PULSAR_UMTS);
+//     const s16 smtCharge = movement.smtCharge;
+//     if(smtCharge >= 550 && isUMTs) movement.driftState = 4;
+//     else if(smtCharge >= 300) movement.driftState = 3;
+// };
+// kmBranch(0x8057efdc, CreateUMT);
 
 //Buffs MTStats and updates umtState
 int BuffUMT(const Kart::Movement& movement) {

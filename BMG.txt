@@ -255,8 +255,7 @@
   6000  = Enable Online
   6001  = Enable Offline
   6002  = Combo Change After Vote
-  6003  = Disable UMTs (OTT Only)
-  6004  = Mute Players & Position Tracker
+  6003  = Mute Players & Position Tracker
   6010  = Disabled
   6011  = Shrooms
   6012  = Feather
@@ -265,8 +264,8 @@
   6022  = Feather
   6030  = Disabled
   6031  = Enabled
-  6040  = No
-  6041  = Yes
+  6040  = Disabled
+  6041  = Enabled
   6050  = Disabled
   6051  = Enabled
   6100  = OnlineTT is disabled offline.
@@ -277,8 +276,8 @@
   6202  = OnlineTT is enabled online with 3 feathers.
   6300  = Players cannot change their combo after the track has been selected.
   6301  = Players can change their combo after the track has been selected.
-  6400  = UMTs will be enabled if they are in the pack.
-  6401  = UMTs will be disabled.
+  6400  = Player sounds and the Position Tracker will behave normally.
+  6401  = Player sounds and the Position Tracker will be muted.
   6500  = Player sounds and the Position Tracker will behave normally.
   6501  = Player sounds and the Position Tracker will be muted.
   7000  = KO Mode
