@@ -130,6 +130,7 @@ void ExpVR::ChangeCombo(PushButton& changeComboButton, u32 hudSlotId) {
 static void AddChangeComboPages(Section* section, PageId id) {
     section->CreateAndInitPage(id);
     section->CreateAndInitPage(PAGE_CHARACTER_SELECT);
+    section->CreateAndInitPage(PAGE_MII_SELECT);    //  For Mii Select Code
     bool isBattle = IsBattle();
     PageId kartPage  = PAGE_KART_SELECT;
     PageId driftPage = PAGE_DRIFT_SELECT;

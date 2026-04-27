@@ -44,9 +44,7 @@ namespace Pulsar {
     kmCall(0x8062FBC4, addMiiSelectPage);  // Friends List (from Mario Kart Channel) 2
     kmCall(0x8062FC3C, addMiiSelectPage);  // Competition (from Mario Kart Channel)
     kmCall(0x8062FCB4, addMiiSelectPage);  // Competition (from Change Character) 
-    //  These two lines are here so that the code is compatible with MrBean35000vr's "Change Character/Vehicle In Between Races Online" code.
-    kmCall(0x8062E0C4, addMiiSelectPage);  // Wi-Fi Course Vote (VS)
-    kmCall(0x8062E154, addMiiSelectPage);  // Wi-Fi Course Vote (Battle)
+    // In-between-races online sections are handled by ChangeCombo.cpp's page bundle.
 
     // Don't add extra buttons if going to the License settings / Mii Select on create / Mii Select on deleted Mii pages. This avoids a crash due to missing resources in MenuOther.szs, used by said pages.
     // C2847E84 -> Inject this ASM somewhere in memory, then call it from 0x80847e84
