@@ -1,5 +1,6 @@
 #include <kamek.hpp>
 #include <MarioKartWii/Race/RaceData.hpp>
+#include <MarioKartWii/Race/Raceinfo/Raceinfo.hpp>
 
 namespace Pulsar {
     // Points Distribution Modifier [Gaberboo]
@@ -131,11 +132,14 @@ namespace Pulsar {
     kmPatchExitPoint(ItemBoxRespawnTimerModifier, 0x80828EE0);
 
     // Anti Lag/Late Start Online [Ro]
+    extern "C" Raceinfo* sInstance__8Raceinfo;
+
     asmFunc AntiLagLateStartOnline() {
         ASM(
             nofralloc;
-            lwz r12, -0x28d8(r30);
-            lwz r12, 0xb70(r12);
+            lis r12, sInstance__8Raceinfo@ha;
+            lwz r12, sInstance__8Raceinfo@l(r12);
+            lwz r12, 0xB70(r12);
             cmpwi r12, 7;
             blt AntiLagLateStartOnlineEnd;
             li r3, 1;
