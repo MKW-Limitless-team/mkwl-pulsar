@@ -1,7 +1,12 @@
 #include <kamek.hpp>
 #include <UI/UI.hpp>
+#include <MarioKartWii/RKNet/USER.hpp>
+#include <MarioKartWii/UI/Section/SectionMgr.hpp>
 namespace Pulsar {
     // Select any Mii in Character Selection Screen (Single Player Menus) [B_squo] https://mariokartwii.com/showthread.php?tid=2434
+
+    extern "C" SectionMgr* sInstance__10SectionMgr;
+    extern "C" RKNet::USERHandler* sInstance__Q25RKNet11USERHandler;
 
     // Small function that adds the Mii Selection page. Accessed from the branches in the lines above. Uses addresses 0x800007B0 thru 0x800007E0 in the original Gecko code.
     // In C++, this'd be the same as having a single function that only has this -> `Section_addPage(section, 0x60);`
@@ -71,6 +76,52 @@ namespace Pulsar {
     kmWrite32(0x80848858, 0x48000044);	// b 0x8084889c
     kmWrite32(0x80848950, 0x480000F4);	// b 0x80848a44
     kmWrite32(0x8059E3B0, 0x60000000);	// nop
+
+    // After choosing a Mii, copy it into the outgoing local-player group immediately so the next USER packet
+    // can advertise it without waiting for the next race transition.
+    asmFunc SyncSelectedMiiToNetwork() {
+        ASM(
+            nofralloc;
+            lis     r12, sInstance__10SectionMgr@ha;
+            lwz     r3, sInstance__10SectionMgr@l(r12);
+            lwz     r3, 0x98(r3);
+            addi    r3, r3, 0x238;
+            lwz     r4, 0x44(r28);
+            lwz     r5, 0xd94(r28);
+            mr      r6, r30;
+
+            lis     r12, 0x805f;
+            ori     r12, r12, 0xaf34;
+            mtctr   r12;
+            bctrl;
+
+            lis     r12, sInstance__10SectionMgr@ha;
+            lwz     r3, sInstance__10SectionMgr@l(r12);
+            lwz     r3, 0x98(r3);
+            addi    r3, r3, 0x238;
+            mr      r4, r30;
+            li      r5, 1;
+
+            lis     r12, 0x805f;
+            ori     r12, r12, 0xa940;
+            mtctr   r12;
+            bctrl;
+
+            lis     r12, sInstance__Q25RKNet11USERHandler@ha;
+            lwz     r3, sInstance__Q25RKNet11USERHandler@l(r12);
+            cmpwi   r3, 0;
+            beq     end;
+            li      r4, 0;
+            stb     r4, 0x0(r3);
+
+        end:
+            lis     r12, sInstance__10SectionMgr@ha;
+            lwz     r3, sInstance__10SectionMgr@l(r12);
+            blr;
+        )
+    }
+    kmBranch(0x80848A8C, SyncSelectedMiiToNetwork);
+    kmPatchExitPoint(SyncSelectedMiiToNetwork, 0x80848A90);
 
     // The game crashes when selecting a Mii here because of a missing pane named ok_text_Xp (where X is a local player number). I wasn't able to fix this on time, so at the moment I skip this to avoid the crash, but has the side effect of not displaying the small "OK" text in in front of the Mii icon
     kmWrite32(0x807E3BB0, 0x60000000);	// nop
