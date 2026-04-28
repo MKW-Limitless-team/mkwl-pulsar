@@ -87,7 +87,7 @@ namespace Pulsar {
     kmWrite32(0x800EE3A0, 0x2C030000);
     kmWrite32(0x800ECAAC, 0x7C7E1B78);
 
-    // Fix Offroad Affecting Star After Cannon Glitch [Ro]
+    // Fix Offroad Affecting Star After Cannon Glitch [Ro] https://mariokartwii.com/showthread.php?tid=2307
     asmFunc FixOffroadAffectingStarAfterCannonGlitch() {
         ASM(
             nofralloc;
@@ -100,7 +100,7 @@ namespace Pulsar {
     kmBranch(0x8057C3F8, FixOffroadAffectingStarAfterCannonGlitch);
     kmPatchExitPoint(FixOffroadAffectingStarAfterCannonGlitch, 0x8057C3FC);
 
-    // Blue Shell Cooldown [Gaberboo]
+    // Blue Shell Cooldown [Gaberboo] https://mariokartwii.com/showthread.php?tid=2180
     asmFunc BlueShellCooldownHook() {
         ASM(
             nofralloc;
@@ -118,7 +118,7 @@ namespace Pulsar {
     kmBranch(0x807AC634, BlueShellCooldownHook);
     kmPatchExitPoint(BlueShellCooldownHook, 0x807AC638);
 
-    // Item Box Respawn Timer Modifier [Unnamed]
+    // Item Box Respawn Timer Modifier [Unnamed] https://mariokartwii.com/showthread.php?tid=2206
     asmFunc ItemBoxRespawnTimerModifier() {
         ASM(
             nofralloc;
@@ -131,7 +131,7 @@ namespace Pulsar {
     kmBranch(0x80828EDC, ItemBoxRespawnTimerModifier);
     kmPatchExitPoint(ItemBoxRespawnTimerModifier, 0x80828EE0);
 
-    // Anti Lag/Late Start Online [Ro]
+    // Anti Lag/Late Start Online [Ro] https://mariokartwii.com/showthread.php?tid=2318
     extern "C" Raceinfo* sInstance__8Raceinfo;
 
     asmFunc AntiLagLateStartOnline() {
