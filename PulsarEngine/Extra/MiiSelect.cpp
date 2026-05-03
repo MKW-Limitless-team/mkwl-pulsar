@@ -2,11 +2,18 @@
 #include <UI/UI.hpp>
 #include <MarioKartWii/RKNet/USER.hpp>
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
+#include <MarioKartWii/UI/Page/Menu/MiiSelect.hpp>
+#include <MarioKartWii/UI/Page/Other/SELECTStageMgr.hpp>
+#include <MarioKartWii/UI/Page/Other/FriendRoom.hpp>
 namespace Pulsar {
     // Select any Mii in Character Selection Screen (Single Player Menus) [B_squo] https://mariokartwii.com/showthread.php?tid=2434
 
     extern "C" SectionMgr* sInstance__10SectionMgr;
     extern "C" RKNet::USERHandler* sInstance__Q25RKNet11USERHandler;
+    extern "C" void CopyMiiToOtherGroup__8MiiGroupFR8MiiGroupUcUc();
+    extern "C" void func_805FA940();
+    extern "C" void MiiSelectAfterControlUpdate(Pages::MiiSelect* page);
+    extern "C" void MiiSelectOnBackPress(Pages::MiiSelect* page, u32 hudSlotId);
 
     // Small function that adds the Mii Selection page. Accessed from the branches in the lines above. Uses addresses 0x800007B0 thru 0x800007E0 in the original Gecko code.
     // In C++, this'd be the same as having a single function that only has this -> `Section_addPage(section, 0x60);`
@@ -90,8 +97,8 @@ namespace Pulsar {
             lwz     r5, 0xd94(r28);
             mr      r6, r30;
 
-            lis     r12, 0x805f;
-            ori     r12, r12, 0xaf34;
+            lis     r12, CopyMiiToOtherGroup__8MiiGroupFR8MiiGroupUcUc@ha;
+            addi    r12, r12, CopyMiiToOtherGroup__8MiiGroupFR8MiiGroupUcUc@l;
             mtctr   r12;
             bctrl;
 
@@ -102,8 +109,8 @@ namespace Pulsar {
             mr      r4, r30;
             li      r5, 1;
 
-            lis     r12, 0x805f;
-            ori     r12, r12, 0xa940;
+            lis     r12, func_805FA940@ha;
+            addi    r12, r12, func_805FA940@l;
             mtctr   r12;
             bctrl;
 
@@ -132,4 +139,31 @@ namespace Pulsar {
 
     // Fixes an issue where selecting a Mii would then load the License's Mii data back
     kmWrite32(0x8083E354, 0x38600000);	// li r3, 0
+
+    // If the shared online countdown times out while idling in Mii Select,
+    // force the same flow as pressing B once.
+    static bool sBackPressNextFrame = false;
+    static bool HasTimedOutMiiSelectCountdown(const Section& section) {
+        Pages::SELECTStageMgr* stageMgr = section.Get<Pages::SELECTStageMgr>();
+        if(stageMgr != nullptr && !stageMgr->countdown.isActive) return true;
+
+        Pages::FriendRoomWaiting* waitingPage = section.Get<Pages::FriendRoomWaiting>();
+        return waitingPage != nullptr && !waitingPage->countdown.isActive;
+    }
+
+    static void MiiSelectAfterControlUpdateHook(Pages::MiiSelect* page) {
+        if(sBackPressNextFrame) {
+            sBackPressNextFrame = false;
+            MiiSelectOnBackPress(page, 0);
+            return;
+        }
+
+        MiiSelectAfterControlUpdate(page);
+
+        SectionMgr* sectionMgr = SectionMgr::sInstance;
+        if(sectionMgr != nullptr && sectionMgr->curSection != nullptr) {
+            sBackPressNextFrame = HasTimedOutMiiSelectCountdown(*sectionMgr->curSection);
+        }
+    }
+    kmWritePointer(0x808D9A0C, MiiSelectAfterControlUpdateHook); // Pages::MiiSelect::AfterControlUpdate
 }

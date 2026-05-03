@@ -830,7 +830,13 @@ AddMii__8MiiGroupFUcP3Mii = 0x805fa3fc
 LoadMii__8MiiGroupFUcPQ23RFL9StoreData = 0x805fa610
 LoadMii__8MiiGroupFUcUs = 0x805fa748
 GetMii__8MiiGroupFUc = 0x805fa930
+func_805FA940 = 0x805fa940
 DeleteMii__8MiiGroupFUc = 0x805faa84
+CopyMiiToOtherGroup__8MiiGroupFR8MiiGroupUcUc = 0x805faf34
+
+#MiiSelect
+MiiSelectAfterControlUpdate = 0x808487e8
+MiiSelectOnBackPress = 0x80848b60
 
 
 
