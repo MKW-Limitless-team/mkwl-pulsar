@@ -12,9 +12,9 @@ enum DenyType {
     DENY_TYPE_OTT,
 };
 
-class Mgr {  // Manages network related stuff within Pulsar
-   public:
-    Mgr() : racesPerGP(3), curBlockingArrayIdx(0), region(0x0A) {}
+class Mgr { //Manages network related stuff within Pulsar
+public:
+    Mgr() : racesPerGP(3), curBlockingArrayIdx(0) {}
     u32 hostContext;
     DenyType denyType;
     u8 deniesCount;
@@ -23,7 +23,6 @@ class Mgr {  // Manages network related stuff within Pulsar
     u8 curBlockingArrayIdx;
     u8 racesPerGP;
     u8 padding[2];
-    u32 region;
     PulsarId* lastTracks;
 };
 

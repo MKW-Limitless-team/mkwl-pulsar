@@ -50,9 +50,10 @@ struct PulRH1 : public RKNet::RACEHEADER1Packet {
 
 };
 struct PulRH2 : public      RKNet::RACEHEADER2Packet {};
-struct PulROOM : public RKNet::ROOMPacket {
-    // Generic ROOM settings
-    u32 hostSystemContext;  // System's context but with just gamemodes taken from the settings
+struct PulROOM : public     RKNet::ROOMPacket {
+
+    //Generic ROOM settings
+    u32 hostSystemContext; //System's context but with just gamemodes taken from the settings
     u8 raceCount;
 };
 
