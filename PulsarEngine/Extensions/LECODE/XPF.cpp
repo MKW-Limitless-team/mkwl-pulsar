@@ -5,6 +5,7 @@
 #include <PulsarSystem.hpp>
 #include <Extensions/LECODE/XPF.hpp>
 #include <Extensions/LECODE/LECODEMgr.hpp>
+#include <MarioKartWii/Objects/Collidable/ItemDropper/Woodbox.hpp>
 
 //Total copy of https://github.com/Gabriela-Orzechowska/LE-CODE-XPF/tree/main all credits goes to Gabriela
 namespace LECODE {
@@ -233,4 +234,20 @@ void XPFMgr::EvaluateXPFAndCreateObjs(ObjectsMgr* mgr, bool isMii) {
     mgr->CreateAllObjects(isMii);
 }
 kmCall(0x8082a7d4, XPFMgr::EvaluateXPFAndCreateObjs);
+
+static void WoodboxRespawnCT(Objects::Woodbox* box) {
+    box->Objects::ItemDropper::RespawnImpl();
+    box->state = Objects::ItemDropper::ITEM_DROPPER_RESPAWNING;
+    float height = 5000.0f;
+    Pulsar::System* system = Pulsar::System::sInstance;
+    if (system != nullptr && system->IsContext(Pulsar::PULSAR_CT)) {
+        height = 500.0f;
+    }
+    box->flags |= 1;
+    float initialHeight = *reinterpret_cast<float*>(reinterpret_cast<u8*>(box) + 0xc0);
+    box->position.y = initialHeight + height;
+    *reinterpret_cast<float*>(reinterpret_cast<u8*>(box) + 0xc4) = 0.0f;
+}
+kmWritePointer(0x808d15a8, WoodboxRespawnCT);
+kmWritePointer(0x808d1494, WoodboxRespawnCT);
 }//namespace LECODE

@@ -1,6 +1,7 @@
 #include <kamek.hpp>
 
-DoFuncsHook* SectionLoadHook::sHooks = nullptr;
+
+SectionLoadHook* SectionLoadHook::sHooks = nullptr;
 DoFuncsHook* RaceLoadHook::raceLoadHooks = nullptr;
 DoFuncsHook* FrameLoadHook::FrameLoadHooks = nullptr;
 DoFuncsHook* RaceFrameHook::raceFrameHooks = nullptr;

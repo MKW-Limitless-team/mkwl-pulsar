@@ -64,7 +64,7 @@ def should_rebuild(cpp: str, modified_h: set[str]) -> bool:
 def compile_cpp(cpp: str):
 	obj = os.path.join(BUILD, os.path.basename(cpp).replace(".cpp", ".o"))
 	cmd = f'"{COMPILER}" {FLAGS} {cpp} -o {obj}'
-	log(f"Compiling {cpp}...")
+	# log(f"Compiling {cpp}...")
 	subprocess.run(cmd, shell=True)
 
 if __name__ == "__main__":
@@ -120,3 +120,5 @@ if __name__ == "__main__":
 	if proc.returncode == 0 and RIIVO != "":
 		log("Copying binary...")
 		shutil.copy(f"{BUILD}/Code.pul", f"{RIIVO}/Code.pul")
+
+	input("Done! Press enter to close.")

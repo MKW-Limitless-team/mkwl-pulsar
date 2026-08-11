@@ -293,11 +293,11 @@
 						<TextBlock x:Name="CCMirLabel" Margin="-50,0,0,0" Text="% Mirror" FontSize="14" Foreground="{DynamicResource fg}" Height="21"/>
 					</StackPanel>
 
-					<TextBlock Text="NinjaWFC Region" Grid.Row="3" Grid.Column="1" Margin="1,6,0,0" HorizontalAlignment="Left" Style="{StaticResource Blocks}" />
-					<TextBox x:Name="Wiimmfi" Grid.Row="3" Grid.Column="1" Margin="119,4,0,0" Width="50" Height="23" Text="" TextChanged="OnWiimmfiRegionChange" DataObject.Pasting="NumbersOnlyPasting" PreviewTextInput="NumbersOnlyBox"  Style="{StaticResource Boxes}" HorizontalAlignment="Left" VerticalAlignment="Top"  />
+					<TextBlock Text="Wiilink WFC Region" Grid.Row="3" Grid.Column="1" Margin="1,6,0,0" HorizontalAlignment="Left" Style="{StaticResource Blocks}" />
+					<TextBox x:Name="Wiimmfi" Grid.Row="3" Grid.Column="1" Margin="127,5,0,0" Width="50" Height="23" Text="" TextChanged="OnWiimmfiRegionChange" DataObject.Pasting="NumbersOnlyPasting" PreviewTextInput="NumbersOnlyBox"  Style="{StaticResource Boxes}" HorizontalAlignment="Left" VerticalAlignment="Top"  />
 
 					<TextBlock Text="Track Blocking" Grid.Row="3" Grid.Column="1" Margin="1,33,0,0" HorizontalAlignment="Left" Style="{StaticResource Blocks}"/>
-					<ComboBox x:Name="TrackBlocking" Grid.Row="3" Grid.Column="1" Margin="123,33,0,0" Width="43" Height="19" HorizontalContentAlignment="Center" SelectionChanged="OnTrackBlockingChange" Style="{StaticResource ComboBoxes}" HorizontalAlignment="Left"/>
+					<ComboBox x:Name="TrackBlocking" Grid.Row="3" Grid.Column="1" Margin="131,33,0,0" Width="43" Height="19" HorizontalContentAlignment="Center" SelectionChanged="OnTrackBlockingChange" Style="{StaticResource ComboBoxes}" HorizontalAlignment="Left"/>
 
 					<TextBox   x:Name="HAWTimer" Text="10" Grid.Row="1" Grid.Column="4" Width="40" Margin="52,55,0,0" Height="24" TextChanged="OnHAWTimerChange" DataObject.Pasting="NumbersOnlyPasting" PreviewTextInput="NumbersOnlyBox" Style="{StaticResource Boxes}" HorizontalAlignment="Left" VerticalAlignment="Top" />
 					<TextBlock Text="Host Always Wins Timer" Grid.Row="1" Grid.Column="4" Margin="0,33,0,0" Style="{StaticResource Blocks}" />

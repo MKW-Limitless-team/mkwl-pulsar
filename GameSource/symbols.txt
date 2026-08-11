@@ -2035,7 +2035,6 @@ PrepareButton__Q25Pages5YesNoFUiUiPQ24Text4InfoUiRC39PtmfHolder_2A<4Page,v,Ui,R1
 IsLocal__Q24Kart4LinkCFv = 0x80590650
 GetCupNameBMGId__FUi = 0x80833638
 
-#IDK
 current__Q23EGG4Heap = 0x80386EA0
 RegisterItem__Q24Item7ManagerFPQ24Item3Obj = 0x807A51C4
 
@@ -2045,3 +2044,9 @@ PostProcessVSTable__Q24Item12ItemSlotDataFPQ34Item12ItemSlotData13Probabilities 
 ptr_playerBase = 0x809C18F8
 fun_playSound = 0x8071497C
 ptr_menuPageOrSomething = 0x809C2850
+
+RespawnImpl__Q27Objects11ItemDropperFv = 0x8076ed70
+
+# frameskip
+beginFrame = 0x8020fe24
+Update__20GameScreenEffectsMgrFv = 0x8054f1b0

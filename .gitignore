@@ -1,6 +1,7 @@
 # Prerequisites
 *.d
 BuildCode.bat
+BuildCode.py
 /cw
 /PulsarPackCreator/Executable/output
 /PulsarPackCreator/Executable/input

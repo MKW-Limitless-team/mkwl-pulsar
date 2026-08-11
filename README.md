@@ -19,8 +19,8 @@ UI:
 - A speedometer that is flush with the game UI
 - In-game crediting of track authors
 - Between Races Change Combo, which has its own UI along with a randomize button
-- Team selection, where the host of a room can manually set the team of each player. Moreover, team VS has been edited to play exactly as normal VS while keeping the coloured minimap icons and the scoreboard after races.
-- Boot in wiimmfi directly
+- Team selection, where the host of a room can manually set the team of each player.
+- Boot in Wiilink WFC directly
 - Better ghost replay which allows multi ghost watching and point-of-view switching
 
 
@@ -39,7 +39,7 @@ Gameplay:
 - CLF78 and stebler's feather
 - Support for custom CC distribution
 - COOB (both kHacker35000vr's and Riidefi's versions)
-
+- Team VS has been edited to play exactly as normal VS does, while keeping the coloured minimap icons and the scoreboard after races.
 
 Network:
 - Rooms that can only be joined by people on the same pack (including the same version)
@@ -50,3 +50,4 @@ Network:
 
 Credits:
 - Treeki for [Kamek](https://github.com/Treeki/Kamek/tree/master). The engine has been ever so slightly modified to create a new output format which combines the usual 4 binaries. 
+- Gabriela for XPF support and USB GCN support from [Aurora](https://github.com/Gabriela-Orzechowska/MKW-Aurora). An exception from the GPLv3 licensing was provided, allowing these files to be used in this project.
