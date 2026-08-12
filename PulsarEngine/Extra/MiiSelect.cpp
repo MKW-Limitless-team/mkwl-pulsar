@@ -143,17 +143,20 @@ namespace Pulsar {
     // If the shared online countdown times out while idling in Mii Select,
     // force the same flow as pressing B once.
     static bool sBackPressNextFrame = false;
-    static bool HasTimedOutMiiSelectCountdown(const Section& section) {
+    static bool sSawActiveCountdown = false;
+    static CountDown* GetMiiSelectCountdown(const Section& section) {
         Pages::SELECTStageMgr* stageMgr = section.Get<Pages::SELECTStageMgr>();
-        if(stageMgr != nullptr && !stageMgr->countdown.isActive) return true;
+        if(stageMgr != nullptr) return &stageMgr->countdown;
 
         Pages::FriendRoomWaiting* waitingPage = section.Get<Pages::FriendRoomWaiting>();
-        return waitingPage != nullptr && !waitingPage->countdown.isActive;
+        if(waitingPage != nullptr) return &waitingPage->countdown;
+        return nullptr;
     }
 
     static void MiiSelectAfterControlUpdateHook(Pages::MiiSelect* page) {
         if(sBackPressNextFrame) {
             sBackPressNextFrame = false;
+            sSawActiveCountdown = false;
             MiiSelectOnBackPress(page, 0);
             return;
         }
@@ -162,7 +165,10 @@ namespace Pulsar {
 
         SectionMgr* sectionMgr = SectionMgr::sInstance;
         if(sectionMgr != nullptr && sectionMgr->curSection != nullptr) {
-            sBackPressNextFrame = HasTimedOutMiiSelectCountdown(*sectionMgr->curSection);
+            CountDown* countdown = GetMiiSelectCountdown(*sectionMgr->curSection);
+            if(countdown == nullptr) sSawActiveCountdown = false;
+            else if(countdown->isActive) sSawActiveCountdown = true;
+            else if(sSawActiveCountdown) sBackPressNextFrame = true;
         }
     }
     kmWritePointer(0x808D9A0C, MiiSelectAfterControlUpdateHook); // Pages::MiiSelect::AfterControlUpdate
