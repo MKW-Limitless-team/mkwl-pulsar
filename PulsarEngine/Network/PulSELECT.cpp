@@ -4,6 +4,7 @@
 #include <PulsarSystem.hpp>
 #include <Gamemodes/KO/KOMgr.hpp>
 #include <Network/Network.hpp>
+#include <Network/GPReport.hpp>
 #include <Network/PacketExpansion.hpp>
 #include <Network/PulSELECT.hpp>
 #include <Settings/Settings.hpp>
@@ -467,7 +468,13 @@ void ProcessNewPacketVoting() {
                 u32 accField = handler->aidsWithAccurateAidPidMap;
                 if (accField != 0) {
                     if (winningTrack != 0xff) accField |= localAidBit;
-                    if ((availableAids & accField) == availableAids) send.phase = 2;
+                    if ((availableAids & accField) == availableAids) {
+                        send.phase = 2;
+
+                        if (send.pulWinningTrack != 0xff) {
+                            Network::ReportU32("wl:mkw_select_course", send.pulWinningTrack);
+                        }
+                    }
                 }
             }
         }
