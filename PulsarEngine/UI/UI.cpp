@@ -19,7 +19,8 @@
 #include <Gamemodes/KO/KOMgr.hpp>
 #include <Gamemodes/KO/KOWinnerPage.hpp>
 #include <Settings/UI/SettingsPanel.hpp>
-
+#include <UI/PlaystyleSelect/PlaystyleSelect.hpp>
+#include <core/rvl/OS/OS.hpp>
 namespace Pulsar {
 namespace UI {
 
@@ -120,6 +121,11 @@ void ExpSection::CreatePulPages() {
         this->CreateAndInitPage(*this, PAGE_SELECT_STAGE_MGR);
     }
     if(this->Get<ExpFroom>() != nullptr) this->CreateAndInitPage(*this, PULPAGE_TEAMSELECT); //can also put it as part of the case froom of createandinitpage
+    //PlaystyleSelect lives in the sections containing DriftSelect/CupSelect (local GP/VS/TT flows)
+    if(this->sectionId == SECTION_SINGLE_P_FROM_MENU || this->sectionId == SECTION_LOCAL_MULTIPLAYER) {
+        OS::Report("ExpSection: Creating PlaystyleSelect page for sectionId=%d\n", this->sectionId);
+        this->CreateAndInitPage(*this, PlaystyleSelect::id);
+    }
 }
 
 void ExpSection::CreateAndInitPage(ExpSection& self, u32 id) {
@@ -193,6 +199,9 @@ void ExpSection::CreateAndInitPage(ExpSection& self, u32 id) {
             break;
         case SettingsPanel::id:
             page = new SettingsPanel;
+            break;
+        case PlaystyleSelect::id:
+            page = new PlaystyleSelect;
             break;
         default:
             page = self.CreatePageById(initId);

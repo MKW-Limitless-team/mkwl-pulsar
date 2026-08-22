@@ -22,6 +22,7 @@
 #include <Gamemodes/OnlineTT/OnlineTT.hpp>
 #include <Gamemodes/KO/KOMgr.hpp>
 #include <Settings/Settings.hpp>
+#include <UI/UI.hpp>
 
 namespace Pulsar {
 
@@ -271,10 +272,18 @@ static void FixAfterDrift(Pages::Menu& menu, PageId id, PushButton& button) { //
         handler.toSendPacket.allowChangeComboStatus = Network::SELECT_COMBO_SELECTED;
         menu.EndStateAnimated(0, 0.0f);
     }
-    else menu.LoadNextPageById(id, button);
+    else {
+        //route local flows through PlaystyleSelect before CupSelect
+        const UI::ExpSection* section = UI::ExpSection::GetSection();
+        if(!system->IsContext(PULSAR_MODE_OTT) && section != nullptr
+            && section->pulPages[UI::PULPAGE_PLAYSTYLESELECT - UI::PULPAGE_INITIAL] != nullptr) {
+            menu.LoadNextPageById(static_cast<PageId>(UI::PULPAGE_PLAYSTYLESELECT), button);
+        }
+        else menu.LoadNextPageById(id, button);
+    }
 }
 kmCall(0x8084e698, FixAfterDrift);
-//kmCall(0x8084b7d4, FixAfterDrift);
+kmCall(0x8084b7d4, FixAfterDrift); //MultiDriftSelect
 
 
 //OPTIONS
