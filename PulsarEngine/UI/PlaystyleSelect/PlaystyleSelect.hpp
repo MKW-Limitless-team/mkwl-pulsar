@@ -9,6 +9,9 @@
 namespace Pulsar {
 namespace UI {
 
+//per-local-player selected playstyle index (0 = balanced); consumed by the stats hook
+extern u8 playstyles[4];
+
 class PlaystyleSelect : public Pages::MenuInteractable {
 public:
     static const PageId id = PULPAGE_PLAYSTYLESELECT;

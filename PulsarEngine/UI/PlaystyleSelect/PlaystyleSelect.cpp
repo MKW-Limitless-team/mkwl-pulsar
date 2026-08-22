@@ -10,6 +10,8 @@
 namespace Pulsar {
 namespace UI {
 
+u8 playstyles[4] = {0, 0, 0, 0};
+
 PlaystyleSelect::PlaystyleSelect() : playstyleCount(3), totalButtons(0), playstyleButtons(nullptr) {
     OS::Report("PlaystyleSelect::Constructor called\n");
     this->onButtonClickHandler.subject = this;
@@ -70,7 +72,7 @@ void PlaystyleSelect::OnActivate() {
     for(u32 i = 0; i < this->totalButtons; ++i) {
         u32 hudSlot = i / playstyleCount;
         u32 styleIdx = i % playstyleCount;
-        u8 currentStyle = reinterpret_cast<u8*>(sectionParams)[0x154 + hudSlot];
+        u8 currentStyle = playstyles[hudSlot];
 
         OS::Report("PlaystyleSelect: Button %d (hudSlot=%d, styleIdx=%d), currentStyle=%d\n", i, hudSlot, styleIdx, currentStyle);
 
@@ -167,9 +169,7 @@ void PlaystyleSelect::OnButtonClick(PushButton& button, u32 hudSlotId) {
     OS::Report("PlaystyleSelect::OnButtonClick called, buttonId=%d, hudSlotId=%d\n", button.buttonId, hudSlotId);
     u32 styleIdx = button.buttonId;
 
-    SectionParams* sectionParams = SectionMgr::sInstance->sectionParams;
-    u8* playstylePtr = reinterpret_cast<u8*>(sectionParams) + 0x154;
-    playstylePtr[hudSlotId] = styleIdx;
+    playstyles[hudSlotId] = static_cast<u8>(styleIdx);
     OS::Report("PlaystyleSelect: Set playstyle=%d for hudSlot=%d\n", styleIdx, hudSlotId);
 
     // Continue to cup select

@@ -6,6 +6,8 @@
 #include <MarioKartWii/Item/Obj/ObjProperties.hpp>
 #include <Race/200ccParams.hpp>
 #include <PulsarSystem.hpp>
+#include <UI/PlaystyleSelect/PlaystyleSelect.hpp>
+#include <core/rvl/OS/OS.hpp>
 
 namespace Pulsar {
 namespace Race {
@@ -27,8 +29,17 @@ void DisplayCorrectLap(AnmTexPatHolder* texPat) { //This Anm is held by a ModelD
 kmCall(0x80723d70, DisplayCorrectLap);
 
 
-kmWrite32(0x808b5cd8, 0x3F800000); //change 100cc speed ratio to 1.0    
+kmWrite32(0x808b5cd8, 0x3F800000); //change 100cc speed ratio to 1.0
 Kart::Stats* ApplySpeedModifier(KartId kartId, CharacterId characterId) {
+    register u32 playerIdx;
+    asm(mr playerIdx, r28;);
+
+    //playstyles: shift into the concatenated kartParam.bin tables (36 entries per playstyle)
+    if(playerIdx < 4 && UI::playstyles[playerIdx] > 0) {
+        kartId = static_cast<KartId>(kartId + 36 * UI::playstyles[playerIdx]);
+        OS::Report("Playstyle: player %d shifted kart stats to entry %d\n", playerIdx, kartId);
+    }
+
     union SpeedModConv {
         float speedMod;
         u32 kmpValue;
