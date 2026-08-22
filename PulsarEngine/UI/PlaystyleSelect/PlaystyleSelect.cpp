@@ -12,7 +12,7 @@ namespace UI {
 
 u8 playstyles[4] = {0, 0, 0, 0};
 
-PlaystyleSelect::PlaystyleSelect() : playstyleCount(3), totalButtons(0), playstyleButtons(nullptr) {
+PlaystyleSelect::PlaystyleSelect() : playstyleCount(4), totalButtons(0), playstyleButtons(nullptr) {
     OS::Report("PlaystyleSelect::Constructor called\n");
     this->onButtonClickHandler.subject = this;
     this->onButtonClickHandler.ptmf = &PlaystyleSelect::OnButtonClick;
@@ -75,6 +75,11 @@ void PlaystyleSelect::OnActivate() {
         u8 currentStyle = playstyles[hudSlot];
 
         OS::Report("PlaystyleSelect: Button %d (hudSlot=%d, styleIdx=%d), currentStyle=%d\n", i, hudSlot, styleIdx, currentStyle);
+
+        //per-vehicle playstyle names
+        const u32 kartId = sectionParams->karts[hudSlot];
+        if(kartId < 36) this->playstyleButtons[i].SetMessage(UI::BMG_PLAYSTYLE_NAMES + kartId * 4 + styleIdx);
+        else OS::Report("PlaystyleSelect: invalid kart %d, keeping default label\n", kartId);
 
         if(hudSlot >= localPlayerCount) continue;
         if(styleIdx == currentStyle) {

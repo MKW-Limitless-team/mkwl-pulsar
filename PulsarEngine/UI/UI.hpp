@@ -178,6 +178,9 @@ enum BMG {
     BMG_TEAMS_ENABLED = 0x2912,
     BMG_TEAMS_DISABLED = 0x2913,
 
+    //playstyle names, per vehicle: id = BMG_PLAYSTYLE_NAMES + kartId * 4 + styleIdx
+    BMG_PLAYSTYLE_NAMES = 0x2935,
+
     //froom
     BMG_PLAY_OTT = 0x2914,
     BMG_PLAY_KO = 0x2915,
