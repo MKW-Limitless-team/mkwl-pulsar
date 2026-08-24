@@ -273,7 +273,7 @@ static void FixAfterDrift(Pages::Menu& menu, PageId id, PushButton& button) { //
         menu.EndStateAnimated(0, 0.0f);
     }
     else {
-        //route local flows through PlaystyleSelect before CupSelect
+        //route local multiplayer flows through PlaystyleSelect before CupSelect
         const UI::ExpSection* section = UI::ExpSection::GetSection();
         if(!system->IsContext(PULSAR_MODE_OTT) && section != nullptr
             && section->pulPages[UI::PULPAGE_PLAYSTYLESELECT - UI::PULPAGE_INITIAL] != nullptr) {

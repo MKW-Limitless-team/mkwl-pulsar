@@ -1,5 +1,4 @@
 #include <MarioKartWii/UI/Page/RaceHUD/RaceHUD.hpp>
-#include <UI/UI.hpp>
 #include <PulsarSystem.hpp>
 
 //Expanded Pages:
@@ -20,6 +19,7 @@
 #include <Gamemodes/KO/KOWinnerPage.hpp>
 #include <Settings/UI/SettingsPanel.hpp>
 #include <UI/PlaystyleSelect/PlaystyleSelect.hpp>
+#include <UI/UI.hpp>
 #include <core/rvl/OS/OS.hpp>
 namespace Pulsar {
 namespace UI {
@@ -121,9 +121,8 @@ void ExpSection::CreatePulPages() {
         this->CreateAndInitPage(*this, PAGE_SELECT_STAGE_MGR);
     }
     if(this->Get<ExpFroom>() != nullptr) this->CreateAndInitPage(*this, PULPAGE_TEAMSELECT); //can also put it as part of the case froom of createandinitpage
-    //PlaystyleSelect lives in the sections containing DriftSelect/CupSelect (local GP/VS/TT flows)
-    if(this->sectionId == SECTION_SINGLE_P_FROM_MENU || this->sectionId == SECTION_LOCAL_MULTIPLAYER) {
-        OS::Report("ExpSection: Creating PlaystyleSelect page for sectionId=%d\n", this->sectionId);
+    //PlaystyleSelect only for local multiplayer
+    if(this->sectionId == SECTION_LOCAL_MULTIPLAYER) {
         this->CreateAndInitPage(*this, PlaystyleSelect::id);
     }
 }

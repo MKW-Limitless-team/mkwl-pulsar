@@ -6,7 +6,7 @@
 #include <MarioKartWii/Item/Obj/ObjProperties.hpp>
 #include <Race/200ccParams.hpp>
 #include <PulsarSystem.hpp>
-#include <UI/PlaystyleSelect/PlaystyleSelect.hpp>
+#include <UI/CustomVehicles/CustomVehicles.hpp>
 #include <core/rvl/OS/OS.hpp>
 
 namespace Pulsar {
@@ -37,7 +37,6 @@ Kart::Stats* ApplySpeedModifier(KartId kartId, CharacterId characterId) {
     //playstyles: shift into the concatenated kartParam.bin tables (36 entries per playstyle)
     if(playerIdx < 4 && UI::playstyles[playerIdx] > 0) {
         kartId = static_cast<KartId>(kartId + 36 * UI::playstyles[playerIdx]);
-        OS::Report("Playstyle: player %d shifted kart stats to entry %d\n", playerIdx, kartId);
     }
 
     union SpeedModConv {
