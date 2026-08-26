@@ -3,7 +3,6 @@
 #include <MarioKartWii/UI/Ctrl/Menu/CtrlMenuMachineGraph.hpp>
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
 #include <MarioKartWii/System/Identifiers.hpp>
-#include <core/rvl/OS/OS.hpp>
 
 namespace Pulsar {
 namespace UI {
@@ -260,23 +259,12 @@ static const u32 BMG_BUTTON_GCN     = 0x8803;
 
 static ControllerType GetControllerType(u8 hud) {
     SectionMgr* mgr = SectionMgr::sInstance;
-    if(mgr == nullptr || mgr->curSection == nullptr) {
-        OS::Report("[BP] GetControllerType: mgr or section null\n");
-        return GCN;
-    }
-    if(hud >= 4) {
-        OS::Report("[BP] GetControllerType: hud %d >= 4\n", hud);
-        return GCN;
-    }
+    if(mgr == nullptr || mgr->curSection == nullptr) return GCN;
+    if(hud >= 4) return GCN;
     const Input::RealControllerHolder* holder = mgr->pad.padInfos[hud].controllerHolder;
-    if(holder == nullptr || holder->curController == nullptr) {
-        OS::Report("[BP] GetControllerType: holder or controller null (hud=%d)\n", hud);
-        return GCN;
-    }
+    if(holder == nullptr || holder->curController == nullptr) return GCN;
     const ControllerType type = holder->curController->GetType();
-    OS::Report("[BP] GetControllerType: hud=%d type=%d\n", hud, type);
     if(type == WHEEL || type == NUNCHUCK || type == CLASSIC || type == GCN) return type;
-    OS::Report("[BP] GetControllerType: unknown type %d, defaulting GCN\n", type);
     return GCN;
 }
 
@@ -291,35 +279,21 @@ static u32 ControllerToBmgId(ControllerType type) {
 }
 
 static void UpdateButtonPrompt(CtrlMenuMachineGraph* graph, u8 hud) {
-    OS::Report("[BP] UpdateButtonPrompt: graph=%08X hud=%d\n", (u32)graph, hud);
-    if(IsMultiplayerPage(graph)) {
-        OS::Report("[BP]   skipped: multiplayer page\n");
-        return;
-    }
+    if(IsMultiplayerPage(graph)) return;
     MachineAbility* abArray = graph->abilityArray;
-    if(abArray == nullptr) {
-        OS::Report("[BP]   skipped: abArray null\n");
-        return;
-    }
+    if(abArray == nullptr) return;
 
     nw4r::lyt::Pane* promptPane = abArray[0].layout.GetPaneByName(BUTTON_PROMPT_PANE);
-    if(promptPane == nullptr) {
-        OS::Report("[BP]   skipped: promptPane null (pane '%s' not found)\n", BUTTON_PROMPT_PANE);
-        return;
-    }
-    OS::Report("[BP]   promptPane found at %08X, flag=%02X\n", (u32)promptPane, promptPane->flag);
+    if(promptPane == nullptr) return;
 
     promptPane->flag |= 0x1;
-    OS::Report("[BP]   pane made visible, flag now=%02X\n", promptPane->flag);
 
     ControllerType ctrlType = GetControllerType(hud);
     u32 bmgId = ControllerToBmgId(ctrlType);
-    OS::Report("[BP]   ctrlType=%d bmgId=0x%04X\n", ctrlType, bmgId);
 
     Text::Info info;
     info.playerId[0] = hud;
     abArray[0].SetTextBoxMessage(BUTTON_PROMPT_PANE, bmgId, &info);
-    OS::Report("[BP]   SetTextBoxMessage done for pane '%s' bmg=0x%04X\n", BUTTON_PROMPT_PANE, bmgId);
 }
 
 static CtrlMenuMachineGraph* LocateGraphForHud(u8 hud) {
@@ -474,9 +448,6 @@ void GraphUpdateHook(CtrlMenuMachineGraph* graph, CharacterId character, KartId 
     if(!IsMultiplayerPage(graph) && lastBase != nullptr && lastBase->parent != nullptr) {
         UpdateIcons(lastBase->parent, kart, style);
         UpdateButtonPrompt(graph, hud);
-    } else {
-        OS::Report("[BP] GraphUpdateHook: icons/prompt skipped. multi=%d lastBase=%08X parent=%08X\n",
-            IsMultiplayerPage(graph), (u32)lastBase, lastBase ? (u32)lastBase->parent : 0);
     }
 }
 kmBranch(0x807e7e20, GraphUpdateHook);
