@@ -1,5 +1,6 @@
 #include <UI/CustomVehicles/CustomVehicles.hpp>
 #include <UI/UI.hpp>
+#include <UI/PlaystyleStatBars.hpp>
 #include <MarioKartWii/Archive/ArchiveMgr.hpp>
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
 #include <MarioKartWii/UI/Page/Page.hpp>
@@ -243,6 +244,8 @@ void ProcessStyleInput() {
 
         playstyles[hud] = static_cast<u8>(style);
         Audio::RSARPlayer::PlaySoundById(step > 0 ? SOUND_ID_RIGHT_ARROW_PRESS : SOUND_ID_LEFT_ARROW_PRESS, 0, nullptr);
+        //stat bars reflect the newly selected playstyle immediately
+        StatBars::RefreshGridBars(hud, static_cast<KartId>(kart));
     }
 }
 
