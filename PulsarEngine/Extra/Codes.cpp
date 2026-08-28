@@ -105,7 +105,7 @@ namespace Pulsar {
         ASM(
             nofralloc;
             lis r10, 0x807b;
-            lhz r9, -0x7cd2(r10);
+            lhzu r9, -0x7cd2(r10);
             lha r8, 0x4(r10);
             rlwinm r9, r9, 16, 0, 15;
             lwzx r7, r9, r8;
