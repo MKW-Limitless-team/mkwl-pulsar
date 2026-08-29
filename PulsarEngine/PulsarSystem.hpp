@@ -111,6 +111,9 @@ public:
     KO::Mgr* koMgr;
     u32 ottVoteState;
     bool ottHideNames;
+
+    //Remote playstyles: per aid, per local slot (0-3), received from each console's PulRH1
+    u8 remoteStyles[12][2];
     u8 nonTTGhostPlayersCount; //because a ghost can be added in vs, racedata's playercount is not reliable
 
 private:

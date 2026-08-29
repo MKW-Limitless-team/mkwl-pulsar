@@ -7,7 +7,6 @@
 #include <Race/200ccParams.hpp>
 #include <PulsarSystem.hpp>
 #include <UI/CustomVehicles/CustomVehicles.hpp>
-#include <core/rvl/OS/OS.hpp>
 
 namespace Pulsar {
 namespace Race {
@@ -34,9 +33,10 @@ Kart::Stats* ApplySpeedModifier(KartId kartId, CharacterId characterId) {
     register u32 playerIdx;
     asm(mr playerIdx, r28;);
 
-    //playstyles: shift into the concatenated kartParam.bin tables (36 entries per playstyle)
-    if(playerIdx < 4 && UI::playstyles[playerIdx] > 0) {
-        kartId = static_cast<KartId>(kartId + 36 * UI::playstyles[playerIdx]);
+    //playstyles: shift into the concatenated kartParam.bin tables (36 entries per playstyle), resolved via StyleForPlayer
+    const u8 style = UI::CustomVehicles::StyleForPlayer(static_cast<u8>(playerIdx));
+    if(style > 0) {
+        kartId = static_cast<KartId>(kartId + 36 * style);
     }
 
     union SpeedModConv {

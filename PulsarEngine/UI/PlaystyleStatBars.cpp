@@ -29,6 +29,37 @@ static const PageGraphInfo pageGraphs[3] = {
 static const u32 abilityStride = 0x17C;
 static const u32 abilityPaneOffset = 0x174;
 
+//stale/freed graph pointers pass header checks; Wii RAM windows: MEM1 0x80000000-0x81800000, MEM2 0x90000000-0x94000000
+static const u32 GRAPH_VTABLE = 0x808d3420;
+
+static bool IsRamPointer(u32 p) {
+    return (p >= 0x80000000u && p < 0x81800000u) || (p >= 0x90000000u && p < 0x94000000u);
+}
+
+static bool IsValidGraph(const void* graph) {
+    if(graph == nullptr) return false;
+    const u32 g = reinterpret_cast<u32>(graph);
+    if(!IsRamPointer(g) || *reinterpret_cast<const u32*>(g) != GRAPH_VTABLE) return false;
+    const u32 statsCount = *reinterpret_cast<const u32*>(g + 0x180);
+    if(statsCount == 0 || statsCount > 7) return false;
+    const u32 abilities = *reinterpret_cast<const u32*>(g + 0x174);
+    if(!IsRamPointer(abilities) || (abilities & 3) != 0) return false;
+    //liveness probe: only a live graph's stat-0 pane still resolves to a pane named "ability_graph"
+    const u32 pane = *reinterpret_cast<const u32*>(abilities + abilityPaneOffset);
+    if(!IsRamPointer(pane)) return false;
+    const char* name = reinterpret_cast<const char*>(pane + 0xBC);
+    const char* expected = "ability_graph";
+    for(u32 i = 0; i <= 13; ++i) {
+        if(name[i] != expected[i]) return false;
+    }
+    return true;
+}
+
+//only trust a page slot whose page carries the id we indexed it by
+static bool IsTrustedPage(Page* page, PageId id) {
+    return page != nullptr && page->pageId == id;
+}
+
 static const char* STYLE_PANE_LOSS = "loss";
 static const char* STYLE_PANE_GAIN = "gain";
 
@@ -53,16 +84,15 @@ static const u32 CORSA_MT_THRESHOLD = 10;
 static const float PERF_TRANS_THRESHOLD = 0.0f;
 static const float QC_THRESHOLD = 270.0f;
 
-// Icon material names in BRLYT mat1 section (must match JSON5)
-// Index maps: 0=inside, 1=hybrid, 2=outside, 3=wide, 4=corsa, 5=perf_trans, 6=qc
+//icon material carrier panes (must match JSON5); slot panes are swap targets only, never material sources
 static const char* ICON_MAT_SOURCE_NAMES[7] = {
-    "icon_slot_0",    // material 7 = mat_icon_inside
-    "icon_slot_1",    // material 8 = mat_icon_hybrid
-    "icon_slot_2",    // material 9 = mat_icon_outside
-    "mat_src_wide",   // material 10 = mat_icon_wide
-    "mat_src_corsa",  // material 11 = mat_icon_corsa
-    "mat_src_perf",   // material 12 = mat_icon_perf_trans
-    "mat_src_qc"      // material 13 = mat_icon_qc
+    "mat_src_inside",   // material 7 = mat_icon_inside
+    "mat_src_hybrid",   // material 8 = mat_icon_hybrid
+    "mat_src_outside",  // material 9 = mat_icon_outside
+    "mat_src_wide",     // material 10 = mat_icon_wide
+    "mat_src_corsa",    // material 11 = mat_icon_corsa
+    "mat_src_perf",     // material 12 = mat_icon_perf_trans
+    "mat_src_qc"        // material 13 = mat_icon_qc
 };
 
 // 3 fixed-position icon slot panes in BRLYT (pre-positioned under mini turbo bar)
@@ -70,10 +100,6 @@ static const char* ICON_SLOT_NAMES[3] = {
     "icon_slot_0", "icon_slot_1", "icon_slot_2"
 };
 static const u32 NUM_ICON_SLOTS = 3;
-
-// Cached material pointers (filled at init from source panes)
-static nw4r::lyt::Material* iconMaterials[7] = {};
-static bool iconMatsCached = false;
 
 enum StatIndex {
     STAT_SPEED,
@@ -191,21 +217,16 @@ static u32 ClassifySpecialIcons(const u8* entry, u32* outTypes) {
     return count;
 }
 
-static void CacheIconMaterials(nw4r::lyt::Pane* parent) {
-    if(parent == nullptr || iconMatsCached) return;
-    for(u32 i = 0; i < 7; ++i) {
-        nw4r::lyt::Pane* src = parent->FindPaneByName(ICON_MAT_SOURCE_NAMES[i], true);
-        if(src != nullptr) {
-            iconMaterials[i] = src->material;
-        }
-    }
-    iconMatsCached = true;
-}
-
 static void UpdateIcons(nw4r::lyt::Pane* parent, KartId kart, u8 style) {
     if(parent == nullptr || kartParamEntries == nullptr || kart >= VEHICLE_COUNT) return;
 
-    CacheIconMaterials(parent);
+    //resolve the source materials from the current layout instance on every call
+    nw4r::lyt::Material* iconMaterials[7];
+    for(u32 i = 0; i < 7; ++i) {
+        iconMaterials[i] = nullptr;
+        nw4r::lyt::Pane* src = parent->FindPaneByName(ICON_MAT_SOURCE_NAMES[i], true);
+        if(src != nullptr) iconMaterials[i] = src->material;
+    }
 
     const u8* styledEntry = kartParamEntries + (kart + VEHICLE_COUNT * style) * ENTRY_SIZE;
 
@@ -303,9 +324,11 @@ static CtrlMenuMachineGraph* LocateGraphForHud(u8 hud) {
         const PageGraphInfo& info = pageGraphs[i];
         if(hud >= info.graphCount) continue;
         Page* page = mgr->curSection->pages[info.id];
-        if(page == nullptr) continue;
-        return reinterpret_cast<CtrlMenuMachineGraph*>(reinterpret_cast<u32>(page)
+        if(!IsTrustedPage(page, info.id)) continue;
+        CtrlMenuMachineGraph* graph = reinterpret_cast<CtrlMenuMachineGraph*>(reinterpret_cast<u32>(page)
             + info.graphOffset + hud * 0x184);
+        if(!IsValidGraph(graph)) continue;
+        return graph;
     }
     return nullptr;
 }
@@ -317,7 +340,7 @@ static u8 HudForGraph(const CtrlMenuMachineGraph* graph) {
     for(u32 i = 0; i < 3; ++i) {
         const PageGraphInfo& info = pageGraphs[i];
         Page* page = mgr->curSection->pages[info.id];
-        if(page == nullptr) continue;
+        if(!IsTrustedPage(page, info.id)) continue;
         const u32 base = reinterpret_cast<u32>(page) + info.graphOffset;
         if(g >= base && g < base + info.graphCount * 0x184) {
             return static_cast<u8>((g - base) / 0x184);
@@ -333,7 +356,7 @@ static bool IsMultiplayerPage(const CtrlMenuMachineGraph* graph) {
     for(u32 i = 0; i < 3; ++i) {
         const PageGraphInfo& info = pageGraphs[i];
         Page* page = mgr->curSection->pages[info.id];
-        if(page == nullptr) continue;
+        if(!IsTrustedPage(page, info.id)) continue;
         const u32 base = reinterpret_cast<u32>(page) + info.graphOffset;
         if(g >= base && g < base + info.graphCount * 0x184) {
             return info.graphCount > 1;
@@ -344,7 +367,7 @@ static bool IsMultiplayerPage(const CtrlMenuMachineGraph* graph) {
 
 void GraphUpdateHook(CtrlMenuMachineGraph* graph, CharacterId character, KartId kart) {
     (void)character;
-    if(graph == nullptr || kart >= VEHICLE_COUNT) return;
+    if(!IsValidGraph(graph) || kart >= VEHICLE_COUNT) return;
 
     if(kartParamEntries == nullptr && !kartParamLoadAttempted) {
         kartParamLoadAttempted = true;
@@ -353,10 +376,12 @@ void GraphUpdateHook(CtrlMenuMachineGraph* graph, CharacterId character, KartId 
             const s32 size = static_cast<s32>(info.length);
             DVD::Close(&info);
             const s32 readSize = (size + 31) & ~31;
-            static u8 fileBuffer[VEHICLE_COUNT * STYLE_COUNT_REAL * ENTRY_SIZE + 4 + 32];
+            static u8 fileBuffer[VEHICLE_COUNT * STYLE_COUNT_REAL * ENTRY_SIZE + 4 + 64];
             u8* alignedBuf = reinterpret_cast<u8*>(
                 (reinterpret_cast<u32>(fileBuffer) + 31) & ~31u);
-            if(size > 0 && static_cast<u32>(readSize) <= sizeof(fileBuffer)
+            //+32: alignedBuf sits up to 31 bytes past fileBuffer, so the head
+            //drift must be reserved or the DMA write runs past the buffer's end
+            if(size > 0 && static_cast<u32>(readSize) + 32 <= sizeof(fileBuffer)
                 && DVD::Open(KART_PARAM_PATH, &info)) {
                 DVD::ReadPrio(&info, alignedBuf, readSize, 0, 2);
                 DVD::Close(&info);
@@ -459,11 +484,12 @@ static void WriteAllBarColors() {
     for(u32 i = 0; i < 3; ++i) {
         const PageGraphInfo& info = pageGraphs[i];
         Page* page = mgr->curSection->pages[info.id];
-        if(page == nullptr) continue;
+        if(!IsTrustedPage(page, info.id)) continue;
 
         for(u8 hud = 0; hud < info.graphCount; ++hud) {
             u8* graph = reinterpret_cast<u8*>(reinterpret_cast<u32>(page)
                 + info.graphOffset + hud * 0x184);
+            if(!IsValidGraph(graph)) continue;
             u8* abilities = *reinterpret_cast<u8**>(graph + 0x174);
             if(abilities == nullptr) continue;
 

@@ -2,6 +2,8 @@
 #include <UI/UI.hpp>
 #include <UI/PlaystyleStatBars.hpp>
 #include <MarioKartWii/Archive/ArchiveMgr.hpp>
+#include <MarioKartWii/RKNet/RKNetController.hpp>
+#include <PulsarSystem.hpp>
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
 #include <MarioKartWii/UI/Page/Page.hpp>
 #include <MarioKartWii/UI/Page/Menu/Menu.hpp>
@@ -40,6 +42,20 @@ static bool IsStyleSelectActive(const SectionMgr& mgr) {
     return top->currentState == 4 && !top->updateState; //STATE_ACTIVE
 }
 
+//player count for the current context: sectionParams offline, room sub online (1 there even with 2 local players)
+static u32 GetEffectiveLocalPlayerCount(const SectionMgr& mgr) {
+    u32 count = mgr.sectionParams->localPlayerCount;
+    if(count == 0 || count > 4) count = 1;
+    const RKNet::Controller* controller = RKNet::Controller::sInstance;
+    if(controller != nullptr) {
+        const u8 onlineCount = controller->subs[controller->currentSub].localPlayerCount;
+        if(onlineCount >= 1 && onlineCount <= 4 && static_cast<u32>(onlineCount) > count) {
+            count = onlineCount;
+        }
+    }
+    return count;
+}
+
 //"ma_bike-2" etc.; null for style 0 / invalid input
 static const char* GeneratedVehiclePostfix(u32 kart, u32 style) {
     if(kart >= 36 || style == 0 || style >= STYLE_COUNT) return nullptr;
@@ -76,10 +92,30 @@ static bool VehicleStyleFileExists(u32 kart, u32 style, CharacterId character) {
     return exists;
 }
 
+//playstyle (0-3) for a race player (0-11): local aid -> playstyles[slot], remote -> remoteStyles[aid][slot]; 0 when unknown/AI
+u8 StyleForPlayer(u8 playerId) {
+    const RKNet::Controller* controller = RKNet::Controller::sInstance;
+    if(controller == nullptr) return playerId < 4 ? (playstyles[playerId] & 3) : 0; //offline: ids are local huds
+    const RKNet::ControllerSub& sub = controller->subs[controller->currentSub];
+    const u8 rawAid = controller->aidsBelongingToPlayerIds[playerId];
+    const u8 aid = rawAid & 0xF; //AI/offline seats hold 0xFF or garbage
+    if(aid >= 12 || rawAid == 0xFF) { return 0; }
+    const bool isLocal = (aid == sub.localAid);
+    const u8 playersAtConsole = isLocal ? sub.localPlayerCount
+                                        : sub.connectionUserDatas[aid].playersAtConsole;
+    u8 slot = 0;
+    if(playersAtConsole == 2 && playerId > 0
+        && (controller->aidsBelongingToPlayerIds[playerId - 1] & 0xF) == aid) slot = 1;
+    if(isLocal) return playstyles[slot] & 3;
+    const System* system = System::sInstance;
+    if(system == nullptr) { return 0; }
+    const u8 s = system->remoteStyles[aid][slot] & 3;
+    return s;
+}
+
 //style to use for a race player; vanilla when unset or files missing
 static u8 RaceStyleForPlayer(u8 playerId, u32 kart, CharacterId character) {
-    if(playerId >= 4) return 0;
-    const u8 style = playstyles[playerId];
+    const u8 style = StyleForPlayer(playerId);
     if(style == 0) return 0;
     if(!VehicleStyleFileExists(kart, style, character)) return 0;
     return style;
@@ -187,8 +223,7 @@ void ProcessStyleInput() {
         }
     }
     else {
-        u32 hudCount = mgr->sectionParams->localPlayerCount;
-        if(hudCount == 0 || hudCount > 4) hudCount = 1;
+        const u32 hudCount = GetEffectiveLocalPlayerCount(*mgr);
         for(u8 hud = 0; hud < hudCount; ++hud) {
             //in multiplayer the shared bottom text follows the currently choosing player
             if(hudCount > 1 && !IsHudChoosingVehicle(top, hud)) continue;
@@ -203,8 +238,7 @@ void ProcessStyleInput() {
 
     static u16 heldToggleButtons[4] = {0, 0, 0, 0};
 
-    u32 count = mgr->sectionParams->localPlayerCount;
-    if(count == 0 || count > 4) count = 1;
+    const u32 count = GetEffectiveLocalPlayerCount(*mgr);
 
     for(u8 hud = 0; hud < count; ++hud) {
         const u32 kart = GetHoveredKart(*mgr, hud);
@@ -213,6 +247,7 @@ void ProcessStyleInput() {
             heldToggleButtons[hud] = 0;
             continue;
         }
+
         //in multiplayer only the currently choosing player may cycle
         if(count > 1 && !IsHudChoosingVehicle(top, hud)) {
             heldToggleButtons[hud] = 0;

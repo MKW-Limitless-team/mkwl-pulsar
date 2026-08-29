@@ -39,6 +39,7 @@ System::System() :
     heap(RKSystem::mInstance.EGGSystem), taskThread(EGG::TaskThread::Create(8, 0, 0x4000, this->heap)),
     //Modes
     koMgr(nullptr), ottHideNames(false) {
+    for(u8 aid = 0; aid < 12; ++aid) for(u8 s = 0; s < 2; ++s) this->remoteStyles[aid][s] = 0;
 }
 
 void System::Init(const ConfigFile& conf) {

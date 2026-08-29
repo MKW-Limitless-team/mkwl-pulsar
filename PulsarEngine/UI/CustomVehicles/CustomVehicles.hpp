@@ -16,6 +16,9 @@ namespace CustomVehicles {
 //poll +/- inputs on kart select pages, cycle playstyles[hud], update label
 void ProcessStyleInput();
 
+//effective playstyle (0-3) for a race player by global index; local->playstyles, remote->received
+u8 StyleForPlayer(u8 playerId);
+
 }//namespace CustomVehicles
 }//namespace UI
 }//namespace Pulsar

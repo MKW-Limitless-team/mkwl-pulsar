@@ -9,6 +9,7 @@
 #include <Network/PulSELECT.hpp>
 #include <Settings/Settings.hpp>
 #include <SlotExpansion/CupsConfig.hpp>
+#include <UI/CustomVehicles/CustomVehicles.hpp>
 
 
 namespace Pulsar {
@@ -25,6 +26,10 @@ void BeforeSELECTSend(RKNet::PacketHolder<PulSELECT>* packetHolder, PulSELECT* s
     }
     else len = sizeof(PulSELECT);
     packetHolder->Copy(src, len);
+    //encode the playstyle into the transmitted copy's kart ids: kart + 36 * style
+    for(u8 slot = 0; slot < 2; ++slot) {
+        packetHolder->packet->playersData[slot].kart += 36 * (UI::playstyles[slot] & 3);
+    }
 }
 kmCall(0x80661040, BeforeSELECTSend);
 
@@ -36,6 +41,16 @@ static void AfterSELECTReception(PulSELECT* unused, PulSELECT* src, u32 len) {
     PulSELECT& dest = handler->receivedPackets[aid];
     register RKNet::PacketHolder<PulSELECT>* holder;
     asm(mr holder, r27);
+    //decode the playstyle from kart ids >= 36 (kart + 36 * style) and restore the vanilla id
+    if(System::sInstance != nullptr && aid < 12) {
+        for(u8 slot = 0; slot < 2; ++slot) {
+            const u8 extKart = src->playersData[slot].kart;
+            if(extKart >= 36) {
+                src->playersData[slot].kart = extKart % 36;
+                System::sInstance->remoteStyles[aid][slot] = extKart / 36;
+            }
+        }
+    }
     if (holder->packetSize == sizeof(RKNet::SELECTPacket)) {
         const u16 pulWinning = CupsConfig::ConvertTrack_RealIdToPulsarId(static_cast<CourseId>(src->winningCourse));
         src->pulWinningTrack = pulWinning; //this is safe because src is a ptr to the buffer of holder which is always big enough
