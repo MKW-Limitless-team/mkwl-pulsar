@@ -101,11 +101,12 @@ namespace Pulsar {
     kmPatchExitPoint(FixOffroadAffectingStarAfterCannonGlitch, 0x8057C3FC);
 
     // Blue Shell Cooldown [Gaberboo] https://mariokartwii.com/showthread.php?tid=2180
+    extern "C" void ItemHolderPlayer_useBlooper();
     asmFunc BlueShellCooldownHook() {
         ASM(
             nofralloc;
-            lis r10, 0x807b;
-            lhzu r9, -0x7cd2(r10);
+            lis r10, (ItemHolderPlayer_useBlooper + 0x17a)@ha;
+            lhzu r9, (ItemHolderPlayer_useBlooper + 0x17a)@l(r10);
             lha r8, 0x4(r10);
             rlwinm r9, r9, 16, 0, 15;
             lwzx r7, r9, r8;

@@ -13,6 +13,10 @@ namespace StatBars {
 //per-stat nerf/buff coloring
 void RefreshGridBars(u8 hud, KartId hoveredKart);
 
+//the vehicle the game is currently previewing for this hud (fed to the hooked graph
+//update on every grid selection change); fallback is used before the first game call
+KartId GetHoveredVehicle(u8 hud, KartId fallback);
+
 }//namespace StatBars
 }//namespace UI
 }//namespace Pulsar

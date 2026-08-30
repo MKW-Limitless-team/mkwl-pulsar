@@ -30,7 +30,7 @@ static const u32 abilityStride = 0x17C;
 static const u32 abilityPaneOffset = 0x174;
 
 //stale/freed graph pointers pass header checks; Wii RAM windows: MEM1 0x80000000-0x81800000, MEM2 0x90000000-0x94000000
-static const u32 GRAPH_VTABLE = 0x808d3420;
+extern "C" const void* CtrlMenuMachineGraph_vtable;
 
 static bool IsRamPointer(u32 p) {
     return (p >= 0x80000000u && p < 0x81800000u) || (p >= 0x90000000u && p < 0x94000000u);
@@ -39,7 +39,8 @@ static bool IsRamPointer(u32 p) {
 static bool IsValidGraph(const void* graph) {
     if(graph == nullptr) return false;
     const u32 g = reinterpret_cast<u32>(graph);
-    if(!IsRamPointer(g) || *reinterpret_cast<const u32*>(g) != GRAPH_VTABLE) return false;
+    if(!IsRamPointer(g)
+        || *reinterpret_cast<const u32*>(g) != reinterpret_cast<const u32>(&CtrlMenuMachineGraph_vtable)) return false;
     const u32 statsCount = *reinterpret_cast<const u32*>(g + 0x180);
     if(statsCount == 0 || statsCount > 7) return false;
     const u32 abilities = *reinterpret_cast<const u32*>(g + 0x174);
@@ -365,9 +366,20 @@ static bool IsMultiplayerPage(const CtrlMenuMachineGraph* graph) {
     return false;
 }
 
+static u32 gameHoveredKarts[4] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+
+KartId GetHoveredVehicle(u8 hud, KartId fallback) {
+    if(hud < 4 && gameHoveredKarts[hud] < VEHICLE_COUNT) return static_cast<KartId>(gameHoveredKarts[hud]);
+    return fallback;
+}
+
 void GraphUpdateHook(CtrlMenuMachineGraph* graph, CharacterId character, KartId kart) {
-    (void)character;
     if(!IsValidGraph(graph) || kart >= VEHICLE_COUNT) return;
+
+    const u8 hud = HudForGraph(graph);
+    if(character != CHARACTER_NONE && hud < 4) {
+        gameHoveredKarts[hud] = static_cast<u32>(kart);
+    }
 
     if(kartParamEntries == nullptr && !kartParamLoadAttempted) {
         kartParamLoadAttempted = true;
@@ -393,7 +405,6 @@ void GraphUpdateHook(CtrlMenuMachineGraph* graph, CharacterId character, KartId 
     if(!rangesComputed) ComputeRanges();
     if(!rangesComputed) return;
 
-    const u8 hud = HudForGraph(graph);
     const u8 style = hud < 4 ? playstyles[hud] : 0;
 
     u8* abilities = *reinterpret_cast<u8**>(

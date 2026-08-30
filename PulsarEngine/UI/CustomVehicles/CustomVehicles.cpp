@@ -10,7 +10,6 @@
 #include <MarioKartWii/Input/ControllerHolder.hpp>
 #include <MarioKartWii/System/Identifiers.hpp>
 #include <MarioKartWii/Audio/RSARPlayer.hpp>
-#include <MarioKartWii/3D/Model/Menu/MenuModelMgr.hpp>
 #include <core/rvl/dvd/dvd.hpp>
 
 namespace Pulsar {
@@ -21,8 +20,9 @@ u8 playstyles[4] = {0, 0, 0, 0};
 namespace CustomVehicles {
 
 //vanilla data tables
-static const char** vehicleNames = reinterpret_cast<const char**>(0x808b3b50);
-static const char* const* characterNames = reinterpret_cast<const char* const*>(0x808b3a90);
+extern "C" const char* VEHICLE_NAMES[36];
+extern "C" const char* CHARACTER_NAMES[48];
+extern "C" void SetModelColorsImpl(void*, void*);
 
 //"<vanillaName>-<style>" postfixes, generated once
 static char generatedPostfixes[36][STYLE_COUNT][16];
@@ -61,7 +61,7 @@ static const char* GeneratedVehiclePostfix(u32 kart, u32 style) {
     if(kart >= 36 || style == 0 || style >= STYLE_COUNT) return nullptr;
     char* postfix = generatedPostfixes[kart][style];
     if(postfix[0] != '\0') return postfix;
-    const char* base = vehicleNames[kart];
+    const char* base = VEHICLE_NAMES[kart];
     if(base == nullptr) return nullptr;
     if(snprintf(postfix, 16, "%s-%u", base, style) <= 0) {
         postfix[0] = '\0';
@@ -76,7 +76,7 @@ static bool VehicleStyleFileExists(u32 kart, u32 style, CharacterId character) {
     u8& cached = styleExists[kart][style][character];
     if(cached != 0) return cached == 2;
     const char* postfix = GeneratedVehiclePostfix(kart, style);
-    const char* charName = characterNames[character];
+    const char* charName = CHARACTER_NAMES[character];
     bool exists = false;
     if(postfix != nullptr && charName != nullptr) {
         char path[0x60];
@@ -177,26 +177,6 @@ static void ShowStyleLabel(Pages::Menu& page, u8 hud, u32 kart, u32 style) {
     if(kart < 36) page.bottomText->SetMessage(BMG_PLAYSTYLE_NAMES + kart * 4 + style);
 }
 
-//vehicle currently being previewed on the kart select page (updates while browsing,
-//unlike sectionParams->karts[] which only updates on confirm)
-static u32 GetHoveredKart(const SectionMgr& mgr, u8 hud) {
-    const u32 confirmed = mgr.sectionParams->karts[hud];
-    const MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
-    if(modelMgr == nullptr || !modelMgr->isActive || modelMgr->kartModels == nullptr) return confirmed;
-
-    //MenuKartModelMgr layout: players[hud] @ +hud*0x10 {idx @ +0xc, readyFlag @ +0x11};
-    //modelCount byte @ +0x4; models array ptr @ +0x8, entries 0x2c apart, kartId @ +0x8
-    const u8* kartModels = reinterpret_cast<const u8*>(modelMgr->kartModels);
-    if(*(const u8*)(kartModels + hud * 0x10 + 0x11) == 0) return confirmed; //previews not built yet
-    const u32 idx = *reinterpret_cast<const u32*>(kartModels + hud * 0x10 + 0xc);
-    const u32 count = *(const u8*)(kartModels + 4);
-    if(idx >= count) return confirmed;
-    const u8* modelsArray = *reinterpret_cast<const u8* const*>(kartModels + 8);
-    if(modelsArray == nullptr) return confirmed;
-    const u32 kartId = *reinterpret_cast<const u32*>(modelsArray + idx * 0x2c + 8);
-    return kartId < 36 ? kartId : confirmed;
-}
-
 void ProcessStyleInput() {
     SectionMgr* mgr = SectionMgr::sInstance;
     if(mgr == nullptr || mgr->curSection == nullptr || mgr->sectionParams == nullptr) return;
@@ -227,7 +207,7 @@ void ProcessStyleInput() {
         for(u8 hud = 0; hud < hudCount; ++hud) {
             //in multiplayer the shared bottom text follows the currently choosing player
             if(hudCount > 1 && !IsHudChoosingVehicle(top, hud)) continue;
-            const u32 kart = GetHoveredKart(*mgr, hud);
+            const u32 kart = StatBars::GetHoveredVehicle(hud, mgr->sectionParams->karts[hud]);
             const u8 style = playstyles[hud];
             if(kart == shownKarts[hud] && style == shownStyles[hud]) continue;
             shownKarts[hud] = kart;
@@ -241,7 +221,7 @@ void ProcessStyleInput() {
     const u32 count = GetEffectiveLocalPlayerCount(*mgr);
 
     for(u8 hud = 0; hud < count; ++hud) {
-        const u32 kart = GetHoveredKart(*mgr, hud);
+        const u32 kart = StatBars::GetHoveredVehicle(hud, mgr->sectionParams->karts[hud]);
         Input::RealControllerHolder* holder = mgr->pad.padInfos[hud].controllerHolder;
         if(holder == nullptr || holder->curController == nullptr) {
             heldToggleButtons[hud] = 0;
@@ -301,7 +281,7 @@ namespace CustomVehicles {
 static ArchivesHolder* LoadKartArchiveHook(ArchiveMgr* archiveMgr, u8 playerId, KartId kart, CharacterId character,
     u32 color, u32 type, EGG::Heap* decompressedHeap, EGG::Heap* archiveHeap) {
     const u8 style = RaceStyleForPlayer(playerId, kart, character);
-    const char** entry = &vehicleNames[kart];
+    const char** entry = &VEHICLE_NAMES[kart];
     const char* old = *entry;
     if(style != 0) *entry = GeneratedVehiclePostfix(kart, style);
     ArchivesHolder* holder = archiveMgr->LoadKartArchive(playerId, kart, character, color, type, decompressedHeap, archiveHeap);
@@ -313,7 +293,7 @@ kmCall(0x805540f4, LoadKartArchiveHook);
 static ArchivesHolder* LoadBackupKartArchiveHook(ArchiveMgr* archiveMgr, u8 playerId, KartId kart, CharacterId character,
     u32 color, u32 type, EGG::Heap* decompressedHeap, EGG::Heap* archiveHeap) {
     const u8 style = RaceStyleForPlayer(playerId, kart, character);
-    const char** entry = &vehicleNames[kart];
+    const char** entry = &VEHICLE_NAMES[kart];
     const char* old = *entry;
     if(style != 0) *entry = GeneratedVehiclePostfix(kart, style);
     ArchivesHolder* holder = archiveMgr->LoadKartArchiveHolder2(playerId, kart, character, color, 0, decompressedHeap, archiveHeap);
@@ -331,7 +311,7 @@ static void SetModelColorsIfReady(void* starAnm, void* drawMdl) {
     for(u32 i = 0; i < 2; ++i) {
         if(*reinterpret_cast<void* const*>(model + 0x14 + i * sizeof(void*)) == nullptr) return;
     }
-    reinterpret_cast<void (*)(void*, void*)>(0x8056be20)(starAnm, drawMdl);
+    SetModelColorsImpl(starAnm, drawMdl);
 }
 kmCall(0x80592e24, SetModelColorsIfReady);
 kmCall(0x80592e40, SetModelColorsIfReady);

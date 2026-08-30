@@ -1217,6 +1217,9 @@ ChangeImage__10TitleImageFbUi = 0x8063a8d4
 GetButtonDriver__23CtrlMenuCharacterSelectF11CharacterId = 0x807e35b0
 buttonIdToCharacterId__23CtrlMenuCharacterSelect = 0x808a7de0
 
+#CtrlMenuMachineGraph
+CtrlMenuMachineGraph_vtable = 0x808d3420
+
 #CtrlMenuCupSelectCourse
 UpdateTrackList__23CtrlMenuCupSelectCourseFUi = 0x807e5ff0
 
@@ -2055,18 +2058,21 @@ fun_playSound = 0x8071497C
 ptr_menuPageOrSomething = 0x809C2850
 
 RespawnImpl__Q27Objects11ItemDropperFv = 0x8076ed70
+ItemHolderPlayer_useBlooper = 0x807a81b4
 
 # frameskip
 beginFrame = 0x8020fe24
 Update__20GameScreenEffectsMgrFv = 0x8054f1b0
 Toggle__18SheetSelectControlFUib = 0x80636264
 
+# Extended vehicles/playstyles
 Toggle__Q218SheetSelectControl17SheetSelectButtonFb = 0x80636c48
-
 LoadNextPageWithDelayById__Q25Pages4MenuF6PageIdf = 0x8083761c
-
 SetEnabledHudSlots__18ControlManipulatorFUi = 0x805efd14
-
 HandleClick__Q25Pages10PushButtonFUiT1 = 0x805be358
-
 Init__18ControlManipulatorFUibb = 0x805efc48
+VEHICLE_NAMES = 0x808b3b50
+CHARACTER_NAMES = 0x808b3a90
+SetModelColorsImpl = 0x8056be20
+
+
