@@ -133,13 +133,13 @@ namespace Pulsar {
     kmPatchExitPoint(ItemBoxRespawnTimerModifier, 0x80828EE0);
 
     // Anti Lag/Late Start Online [Ro] https://mariokartwii.com/showthread.php?tid=2318
-    extern "C" Raceinfo* sInstance__8Raceinfo;
+    extern "C" Racedata* sInstance__8Racedata;
 
     asmFunc AntiLagLateStartOnline() {
         ASM(
             nofralloc;
-            lis r12, sInstance__8Raceinfo@ha;
-            lwz r12, sInstance__8Raceinfo@l(r12);
+            lis r12, sInstance__8Racedata@ha;
+            lwz r12, sInstance__8Racedata@l(r12);
             lwz r12, 0xB70(r12);
             cmpwi r12, 7;
             blt AntiLagLateStartOnlineEnd;
