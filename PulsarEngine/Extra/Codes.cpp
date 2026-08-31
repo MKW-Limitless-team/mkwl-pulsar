@@ -28,8 +28,8 @@ namespace Pulsar {
     kmWrite32(0x80643BC4, 0x60000000);
     kmWrite32(0x80643C2C, 0x60000000);
 
-    // No item drop in TT/OTT [Ro]
-    kmWrite32(0x80790C48, 0x38600001);
+    // No item drop in TT/OTT [Ro] https://mariokartwii.com/showthread.php?tid=2316 (TODO: investigate why it blocks items from VS as well)
+    // kmWrite32(0x80790C48, 0x38600001);
 
     // Item Damage Type Modifier [CLF78, Skullface, Supastarrio] https://mariokartwii.com/showthread.php?tid=1638
     kmWrite32(0x80573188, 0x38600000); // Banana
