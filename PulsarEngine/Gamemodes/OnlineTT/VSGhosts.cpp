@@ -6,6 +6,7 @@
 #include <IO/IO.hpp>
 #include <SlotExpansion/CupsConfig.hpp>
 #include <Ghost/UI/ExpGhostSelect.hpp>
+#include <UI/CustomVehicles/CustomVehicles.hpp>
 
 namespace Pulsar {
 namespace OTT {
@@ -82,6 +83,7 @@ void AddGhostToVS() {
                 }
                 else memcpy(dest, rkg, sizeof(RKG));
                 racedata->menusScenario.players[playerCount - 1].playerType = PLAYER_GHOST;
+                UI::ghostPlaystyles[playerCount - 1] = dest->header.unknown_5[0] & 3;
             }
         }
         delete rkg;

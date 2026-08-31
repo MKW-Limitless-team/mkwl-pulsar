@@ -11,6 +11,9 @@ const u32 STYLE_COUNT = 4;
 //per local hudSlot chosen vehicle style (0 = vanilla); consumed by stats + model loading
 extern u8 playstyles[4];
 
+//per race-player-slot playstyle loaded from ghost RKG headers; used by StyleForPlayer during ghost replay
+extern u8 ghostPlaystyles[4];
+
 namespace CustomVehicles {
 
 //poll +/- inputs on kart select pages, cycle playstyles[hud], update label

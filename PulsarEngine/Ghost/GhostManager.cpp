@@ -2,6 +2,7 @@
 #include <Settings/Settings.hpp>
 #include <IO/IO.hpp>
 #include <SlotExpansion/CupsConfig.hpp>
+#include <UI/CustomVehicles/CustomVehicles.hpp>
 
 namespace Pulsar {
 namespace Ghosts {
@@ -126,6 +127,7 @@ void Mgr::Reset() {
     new(&this->expertGhost) Timer;
     delete[] this->files;
     this->files = nullptr;
+    for(int i = 0; i < 4; ++i) UI::ghostPlaystyles[i] = 0;
     Racedata* racedata = Racedata::sInstance;
     racedata->menusScenario.players[1].playerType = PLAYER_NONE;
     racedata->menusScenario.players[2].playerType = PLAYER_NONE;
@@ -207,6 +209,7 @@ void Mgr::LoadAllGhosts(u32 maxGhosts, bool isGhostRace) {
 
                 racedata->menusScenario.players[position + isGhostRace].playerType = PLAYER_GHOST;
                 SectionMgr::sInstance->sectionParams->playerMiis.LoadMii(position + isGhostRace, &dest.header.miiData);
+                UI::ghostPlaystyles[position + isGhostRace] = dest.header.unknown_5[0] & 3;
                 ++position;
             }
         }
@@ -223,21 +226,23 @@ bool Mgr::SaveGhost(const RKSYS::LicenseLdbEntry& entry, u32 ldbPosition, bool i
     buffer.ClearBuffer();
 
     bool gotTrophy = false;
-    if(data.CreateRKG(buffer) && buffer.CompressTo(this->rkg)) {
-        if(this->cb != nullptr) {
-            this->cb(buffer, IS_SAVING_GHOST, -1);
-        }
-        u32 crc32 = Mgr::GetRKGcrc32(this->rkg);
-        if(ldbPosition >= 0) this->leaderboard.Update(ldbPosition, entry, crc32); //in this order as save opens files too
-        const System* system = System::sInstance;
-        system->taskThread->Request(&Mgr::CreateAndSaveFiles, this, 0);
+    if(data.CreateRKG(buffer)) {
+        buffer.header.unknown_5[0] = UI::playstyles[0] & 3;
+        if(buffer.CompressTo(this->rkg)) {
+            if(this->cb != nullptr) {
+                this->cb(buffer, IS_SAVING_GHOST, -1);
+            }
+            u32 crc32 = Mgr::GetRKGcrc32(this->rkg);
+            if(ldbPosition >= 0) this->leaderboard.Update(ldbPosition, entry, crc32); //in this order as save opens files too
+            const System* system = System::sInstance;
+            system->taskThread->Request(&Mgr::CreateAndSaveFiles, this, 0);
 
-        const Timer& expert = this->GetExpert();
-        if(expert.isActive && expert > entry.timer && system->GetInfo().HasTrophies()) {
-            gotTrophy = true;
-            Settings::Mgr::sInstance->AddTrophy(CupsConfig::sInstance->GetCRC32(this->GetPulsarId()), system->ttMode);
-            this->leaderboard.AddTrophy();
-
+            const Timer& expert = this->GetExpert();
+            if(expert.isActive && expert > entry.timer && system->GetInfo().HasTrophies()) {
+                gotTrophy = true;
+                Settings::Mgr::sInstance->AddTrophy(CupsConfig::sInstance->GetCRC32(this->GetPulsarId()), system->ttMode);
+                this->leaderboard.AddTrophy();
+            }
         }
     }
     return gotTrophy;
@@ -378,6 +383,7 @@ kmCall(0x8052f5e4, GhostHeaderGetCorrectRKG);
 void Mgr::LoadCorrectMainGhost(Pages::GhostManager& ghostManager, u8 r4) {
     Mgr* self = Mgr::sInstance;
     self->LoadGhost(*ghostManager.rkgPointer, self->GetGhostData(self->mainGhostIndex).padding);
+    UI::ghostPlaystyles[1] = ghostManager.rkgPointer->header.unknown_5[0] & 3;
     if(ghostManager.state == SAVED_GHOST_RACE_FROM_MENU) ghostManager.state = STAFF_GHOST_RACE_FROM_MENU;
     //faking that it's a staff so it copies from the buffer and not savadatamanager
 }
@@ -398,6 +404,7 @@ kmCall(0x805e14f4, Mgr::ExtendSetupGhostRace);
 
 void Mgr::ExtendSetupGhostReplay(Pages::GhostManager& ghostManager, bool isStaffGhosts) {
     ghostManager.SetupGhostReplay(true);
+    UI::ghostPlaystyles[0] = ghostManager.rkgPointer->header.unknown_5[0] & 3;
     Mgr::sInstance->LoadAllGhosts(3, false);
 }
 kmCall(0x805e144c, Mgr::ExtendSetupGhostReplay);

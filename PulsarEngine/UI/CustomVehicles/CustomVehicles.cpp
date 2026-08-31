@@ -9,6 +9,7 @@
 #include <MarioKartWii/UI/Page/Menu/Menu.hpp>
 #include <MarioKartWii/Input/ControllerHolder.hpp>
 #include <MarioKartWii/System/Identifiers.hpp>
+#include <MarioKartWii/Race/RaceData.hpp>
 #include <MarioKartWii/Audio/RSARPlayer.hpp>
 #include <core/rvl/dvd/dvd.hpp>
 
@@ -16,6 +17,7 @@ namespace Pulsar {
 namespace UI {
 
 u8 playstyles[4] = {0, 0, 0, 0};
+u8 ghostPlaystyles[4] = {0, 0, 0, 0};
 
 namespace CustomVehicles {
 
@@ -92,8 +94,15 @@ static bool VehicleStyleFileExists(u32 kart, u32 style, CharacterId character) {
     return exists;
 }
 
-//playstyle (0-3) for a race player (0-11): local aid -> playstyles[slot], remote -> remoteStyles[aid][slot]; 0 when unknown/AI
+//playstyle (0-3) for a race player (0-11): ghost -> ghostPlaystyles, local -> playstyles, remote -> remoteStyles
 u8 StyleForPlayer(u8 playerId) {
+    //ghost players use the playstyle stored in their RKG
+    if(playerId < 4 && Racedata::sInstance != nullptr) {
+        const RacedataPlayer& player = Racedata::sInstance->racesScenario.players[playerId];
+        if(player.playerType == PLAYER_GHOST) {
+            return ghostPlaystyles[playerId] & 3;
+        }
+    }
     const RKNet::Controller* controller = RKNet::Controller::sInstance;
     if(controller == nullptr) return playerId < 4 ? (playstyles[playerId] & 3) : 0; //offline: ids are local huds
     const RKNet::ControllerSub& sub = controller->subs[controller->currentSub];
