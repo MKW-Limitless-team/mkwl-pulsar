@@ -5,6 +5,7 @@
 #include <MarioKartWii/GlobalFunctions.hpp>
 #include <MarioKartWii/Driver/DriverManager.hpp>
 #include <Settings/Settings.hpp>
+#include <UI/CustomVehicles/CustomVehicles.hpp>
 
 namespace Pulsar {
 namespace Race {
@@ -15,6 +16,9 @@ static void NonGhostPlayerCount(RacedataScenario& scenario, u8* playerCount, u8*
     u8 realPlayers = *playerCount;
     if (scenario.settings.gamemode != MODE_TIME_TRIAL) for (int i = 0; i < 12; ++i) if (scenario.players[i].playerType == PLAYER_GHOST) --realPlayers;
     system->nonTTGhostPlayersCount = realPlayers;
+    if (scenario.settings.gamemode == MODE_VS_RACE || scenario.settings.raceNumber == 0) {
+        UI::CustomVehicles::RandomiseCpuPlaystyles();
+    }
 }
 kmCall(0x8052fc78, NonGhostPlayerCount);
 

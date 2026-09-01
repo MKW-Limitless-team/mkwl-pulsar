@@ -9,6 +9,7 @@
 #include <MarioKartWii/UI/Page/Menu/Menu.hpp>
 #include <MarioKartWii/Input/ControllerHolder.hpp>
 #include <MarioKartWii/System/Identifiers.hpp>
+#include <MarioKartWii/System/Random.hpp>
 #include <MarioKartWii/Race/RaceData.hpp>
 #include <MarioKartWii/Audio/RSARPlayer.hpp>
 #include <core/rvl/dvd/dvd.hpp>
@@ -18,6 +19,7 @@ namespace UI {
 
 u8 playstyles[4] = {0, 0, 0, 0};
 u8 ghostPlaystyles[4] = {0, 0, 0, 0};
+u8 cpuPlaystyles[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 namespace CustomVehicles {
 
@@ -94,13 +96,15 @@ static bool VehicleStyleFileExists(u32 kart, u32 style, CharacterId character) {
     return exists;
 }
 
-//playstyle (0-3) for a race player (0-11): ghost -> ghostPlaystyles, local -> playstyles, remote -> remoteStyles
+//playstyle (0-3) for a race player (0-11): ghost -> ghostPlaystyles, cpu -> cpuPlaystyles, local -> playstyles, remote -> remoteStyles
 u8 StyleForPlayer(u8 playerId) {
-    //ghost players use the playstyle stored in their RKG
-    if(playerId < 4 && Racedata::sInstance != nullptr) {
+    if(playerId < 12 && Racedata::sInstance != nullptr) {
         const RacedataPlayer& player = Racedata::sInstance->racesScenario.players[playerId];
         if(player.playerType == PLAYER_GHOST) {
             return ghostPlaystyles[playerId] & 3;
+        }
+        if(player.playerType == PLAYER_CPU) {
+            return cpuPlaystyles[playerId] & 3;
         }
     }
     const RKNet::Controller* controller = RKNet::Controller::sInstance;
@@ -120,6 +124,29 @@ u8 StyleForPlayer(u8 playerId) {
     if(system == nullptr) { return 0; }
     const u8 s = system->remoteStyles[aid][slot] & 3;
     return s;
+}
+
+//assign each CPU race player a random playstyle 1-3
+void RandomiseCpuPlaystyles() {
+    if(Racedata::sInstance == nullptr) return;
+    const RacedataScenario& scenario = Racedata::sInstance->racesScenario;
+    const GameMode mode = scenario.settings.gamemode;
+    if(mode != MODE_GRAND_PRIX && mode != MODE_VS_RACE) return;
+    Random random(scenario.settings.randomSeed);
+    for(u8 i = 0; i < 12; ++i) {
+        cpuPlaystyles[i] = 0;
+        if(scenario.players[i].playerType != PLAYER_CPU) continue;
+        
+        //randomise style order then pick any - NO archive validation
+        u8 order[3] = {1, 2, 3};
+        for(u32 j = 3; j > 1; --j) {
+            const u32 r = random.NextLimited(j);
+            const u8 tmp = order[j - 1]; order[j - 1] = order[r]; order[r] = tmp;
+        }
+        u8 chosen = order[random.NextLimited(3)]; // Pure random selection
+        
+        cpuPlaystyles[i] = chosen;
+    }
 }
 
 //style to use for a race player; vanilla when unset or files missing
