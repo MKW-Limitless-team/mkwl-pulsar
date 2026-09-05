@@ -37,11 +37,13 @@ for /R %PULSAR% %%f in (*.cpp) do SET "CPPFILES=%%f !CPPFILES!"
 
 :: Compile CPP
 %CC% %CFLAGS% -c -o "build/kamek.o" "%ENGINE%\kamek.cpp"
+if %ErrorLevel% neq 0 goto :end
 
 SET OBJECTS=
 FOR %%H IN (%CPPFILES%) DO (
     ::echo "Compiling %%H..."
     %CC% %CFLAGS% %DEFINE% -c -o "build/%%~nH.o" "%%H"
+    if !ErrorLevel! neq 0 goto :end
     SET "OBJECTS=build/%%~nH.o !OBJECTS!"
 )
 

@@ -61,11 +61,11 @@ def should_rebuild(cpp: str, modified_h: set[str]) -> bool:
 	# if none of the above, no need to rebuild
 	return False
 
-def compile_cpp(cpp: str):
+def compile_cpp(cpp: str) -> subprocess.CompletedProcess:
 	obj = os.path.join(BUILD, os.path.basename(cpp).replace(".cpp", ".o"))
 	cmd = f'"{COMPILER}" {FLAGS} {cpp} -o {obj}'
 	# log(f"Compiling {cpp}...")
-	subprocess.run(cmd, shell=True)
+	return subprocess.run(cmd, shell=True)
 
 if __name__ == "__main__":
 	# add debug flags if -d argument is passed
@@ -100,9 +100,12 @@ if __name__ == "__main__":
 			quit()
 			
 	# build cpp files (in parallel!)
-	compile_cpp(f"{ENGINE}/kamek.cpp")
+	if compile_cpp(f"{ENGINE}/kamek.cpp").returncode != 0:
+		sys.exit(1)
 	with concurrent.futures.ThreadPoolExecutor() as executor:
-		executor.map(compile_cpp, modified_cpps)
+		results = list(executor.map(compile_cpp, modified_cpps))
+	if any(r.returncode != 0 for r in results):
+		sys.exit(1)
 
 	# link objects into binary
 	obj_files = glob.glob(f"{BUILD}/*.o")
