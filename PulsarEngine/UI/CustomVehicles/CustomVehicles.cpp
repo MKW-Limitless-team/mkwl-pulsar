@@ -131,8 +131,7 @@ u8 StyleForPlayer(u8 playerId) {
     return s;
 }
 
-//assign each CPU race player a random playstyle 1-3; callers only invoke this
-//on the first race of a session so the styles stay stable for later races
+//assign each CPU race player a random playstyle 1-3, stable for the whole session
 void RandomiseCpuPlaystyles() {
     if(Racedata::sInstance == nullptr) return;
     const RacedataScenario& scenario = Racedata::sInstance->racesScenario;
@@ -223,8 +222,7 @@ void ProcessStyleInput() {
     SectionMgr* mgr = SectionMgr::sInstance;
     if(mgr == nullptr || mgr->curSection == nullptr || mgr->sectionParams == nullptr) return;
 
-    //where the dedicated PlaystyleSelect page exists (local multiplayer), R/L cycling
-    //on the kart grid is disabled: the page is the only style picker there
+    //on local multiplayer the PlaystyleSelect page is the only style picker
     const ExpSection* section = ExpSection::GetSection();
     if(section != nullptr
         && section->pulPages[PULPAGE_PLAYSTYLESELECT - PULPAGE_INITIAL] != nullptr) return;
@@ -293,8 +291,7 @@ void ProcessStyleInput() {
         else if((pressed & nextButton) != 0) step = 1;
         else continue;
 
-        //cycle through all styles unconditionally; vehicles without custom files
-        //for a style simply fall back to vanilla looks (RaceStyleForPlayer)
+        //cycle through all styles; vehicles without a style file fall back to vanilla
         u32 style = playstyles[hud];
         style = (style + STYLE_COUNT + step) % STYLE_COUNT;
         if(style == playstyles[hud]) continue;
@@ -306,12 +303,7 @@ void ProcessStyleInput() {
     }
 }
 
-//---- menu model styling ----
-//menu allkart archives are per character+style: "<char>-<style>-allkart".
-//battle _BT paths are out of scope and always stay vanilla. The game only
-//(re)loads the archive on character changes, so the selected style is
-//substituted into the load path (initial loads) and a re-request is issued
-//when the style changes under an already loaded archive.
+//---- menu model styling: archives are per character+style "<char>-<style>-allkart" ----
 struct MenuCharManager {
     void* vtable;
     EGG::ExpHeap* archiveHeap;
@@ -324,19 +316,11 @@ static const u32 MENU_MANAGERS_OFFSET = 0x5AC; //menuCharacterManagers within Re
 static const u32 MENU_ARCHIVES_OFFSET = 0x8;   //kartArchives within ResourceManager/ArchiveMgr
 static const u32 MENU_ARCHIVE_STRIDE = 28;     //sizeof MultiDvdArchive
 
-//the archive that is currently loaded per hud, in style terms: a non-zero
-//value means the styled archive for that style is loaded, 0 means vanilla.
-//A style whose archive is missing counts as vanilla once loaded.
+//style of the archive currently loaded per hud; 0 = vanilla (missing styles load vanilla)
 static u8 menuBoundStyle[4] = {0, 0, 0, 0};
-//the last style label seen per hud, so skip logs print once per click
-static u8 menuStyleLastSeen[4] = {0, 0, 0, 0};
-//a style-triggered menu reload is in flight; restore the on-kart stance once
-//the rebuild finishes (state==4 && isLocked), when a fresh onKartTransformator
-//exists again
+//set while a style-triggered archive reload is in flight
 static bool menuReloadOutstanding[4] = {false, false, false, false};
-//decomp-accurate MenuDriverModel state ids (mkw-pal.c enum FUN_8082fb78_state):
-//the header labels these 1/2, but the game uses 0 = character-select and
-//2 = on-vehicle (kart). Vanilla passes exactly 0 and 2.
+//game-accurate MenuDriverModel state ids (the header's 1/2 are wrong)
 static const u32 MENU_DRIVER_STATE_CHARSEL = 0;
 static const u32 MENU_DRIVER_STATE_ONKART = 2;
 //tri-state existence cache per character/style: 0 unknown, 1 missing, 2 exists
@@ -348,8 +332,6 @@ typedef void (*MenuArchiveLoadFunc)(void* archive, char* path, EGG::Heap* archiv
 static MenuArchiveLoadFunc const RealMenuArchiveLoad = reinterpret_cast<MenuArchiveLoadFunc>(0x8052A954);
 typedef bool (*RequestMenuReloadFunc)(ArchiveMgr* mgr, u8 hud, u32 character, u32 gamemode);
 static RequestMenuReloadFunc const RequestMenuReload = reinterpret_cast<RequestMenuReloadFunc>(0x80542210);
-typedef bool (*IsLoadedFunc)(void* archive);
-static IsLoadedFunc const IsLoaded = reinterpret_cast<IsLoadedFunc>(0x8052a800);
 typedef void (*PrepareDriverOnKartAnmsFunc)(MenuDriverModelMgr* mgr, u32 hud);
 static PrepareDriverOnKartAnmsFunc const RealPrepareDriverOnKartAnms = reinterpret_cast<PrepareDriverOnKartAnmsFunc>(0x80830c64);
 
@@ -390,16 +372,10 @@ static bool MenuStyleFileExists(u32 character, u32 style) {
         }
     }
     cached = exists ? 2 : 1;
-    OS::Report("Pulsar MENU: probe char=%s style=%u -> %s\n",
-        CHARACTER_NAMES[character], style, exists ? "exists" : "missing");
     return exists;
 }
 
-//latches an out-of-band selection (dedicated multiplayer picker) into the
-//bound style so menu loads see it even though no rebind poll fires there.
-//Styles without an archive count as vanilla (0) - the archive-load hook's own
-//exists-check would fall back to vanilla anyway, and menuBoundStyle tracks
-//the LOADED archive, not the selected style label.
+//latches an out-of-band selection (multiplayer picker) into the bound style
 void NoteMenuStyleSelected(u8 hud) {
     if(hud >= 4) return;
     MenuCharManager* mm = MenuManagerForHud(hud);
@@ -437,16 +413,10 @@ static bool MenuPathCharacter(const char* path, u32& character) {
     return false;
 }
 
-//substitute the styled archive path into menu allkart loads; both the sync
-//loader (0x805410e4) and the async task (0x80541e44) route through here.
-//anything unrecognised (battle paths, unknown characters, missing files)
-//falls through to the vanilla path untouched, so stats and labels are
-//unaffected and a missing file can never crash
+//substitutes the styled archive path into menu allkart loads; anything else loads vanilla
 static void MenuArchiveLoadHook(void* archiveCountPtr, char* path, EGG::Heap* archiveHeap, EGG::Heap* fileHeap, u32 unused) {
     ArchiveMgr* mgr = ArchiveMgr::sInstance;
-    //HUD slot from the archive pointer. Call sites disagree on convention
-    //(archive+8 at the sync sites, archive+0 at the task site), so accept
-    //either alignment instead of assuming one.
+    //HUD slot from the archive pointer; call sites disagree on the exact offset
     u32 hud = 4;
     if(mgr != nullptr && path != nullptr) {
         const u8* base = reinterpret_cast<const u8*>(&mgr->kartModelsHolders[0]);
@@ -470,8 +440,6 @@ static void MenuArchiveLoadHook(void* archiveCountPtr, char* path, EGG::Heap* ar
                 const char* postfix = GeneratedMenuPostfix(character, style);
                 if(postfix != nullptr) {
                     snprintf(path, 128, "Scene/Model/Kart/%s-allkart", postfix);
-                    OS::Report("Pulsar MENU: styled load hud=%u char=%s style=%u path=%s\n",
-                        hud, CHARACTER_NAMES[character], style, path);
                 }
             }
         }
@@ -483,14 +451,7 @@ kmCall(0x80541FB8, MenuArchiveLoadHook);
 //sync variant loader's load call (same register convention)
 kmCall(0x80542198, MenuArchiveLoadHook);
 
-//re-show and re-bind the driver after a reload's rebuild. Called from the
-//prepareDriverOnKartAnms hook (same frame the rebuild runs in) and from the
-//restore poll as a fallback. Restores the 0x100000 G3D flag (the next Update
-//show loop re-inserts the drawMdl into the ScnGroup), makes the driver
-//visible again, and re-enters the on-kart stance via the vanilla SwitchState
-//(stops the charSel anms, binds the fresh onKart, plays the kart anims).
-//Off a style page only visibility is restored: state is still CHARSEL(0),
-//the correct stance everywhere else, and the page's own flow owns the stance.
+//re-shows the driver on the kart after a reload's rebuild; visibility-only off a style page
 static void RestoreDriverAfterRebuild(u8 hud) {
     MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
     if(modelMgr == nullptr || modelMgr->driverModels == nullptr) return;
@@ -502,24 +463,15 @@ static void RestoreDriverAfterRebuild(u8 hud) {
         Page* top = mgr->curSection->GetTopLayerPage();
         onStylePage = top != nullptr && IsStylePageId(top->pageId) && top->pageId != PAGE_BATTLE_KART_SELECT;
     }
-    OS::Report("Pulsar MENU: RESTORE hud=%u driver=%08x onKart=%08x%s\n",
-        hud, (u32)liveDriver, (u32)liveDriver->onKartTransformator, onStylePage ? "" : " (visibility only)");
     liveDriver->model->bitfield |= 0x100000;
     modelMgr->driverModels->players[hud].isVisible = true;
     if(onStylePage) {
-        //vanilla stance entry: stops the charSel anms (disableAll=1), binds the
-        //fresh onKart transformator, plays the on-kart anims, sets state=2.
-        //A raw pointer write would skip the anm detach and leave stale active
-        //anms on the driver's ScnObj.
         liveDriver->SwitchState(hud, static_cast<MenuDriverModel::State>(MENU_DRIVER_STATE_ONKART));
     }
     menuReloadOutstanding[hud] = false;
 }
 
-//same-frame restore: prepareDriverOnKartAnms runs at the end of every rebuild
-//(MenuKartModelMgr::Load, main thread, calc phase) and is the moment the fresh
-//on-kart transformator exists. Restoring here instead of polling the next
-//frame saves one frame of hidden driver.
+//restores in the same frame as the rebuild, which ends with prepareDriverOnKartAnms
 static void PrepareDriverOnKartAnmsHook(MenuDriverModelMgr* mgr, u32 hud) {
     RealPrepareDriverOnKartAnms(mgr, hud);
     if(hud < 4 && menuReloadOutstanding[hud]) {
@@ -528,11 +480,7 @@ static void PrepareDriverOnKartAnmsHook(MenuDriverModelMgr* mgr, u32 hud) {
 }
 kmCall(0x80832ea4, PrepareDriverOnKartAnmsHook);
 
-//re-request the menu archive when the selected style changed under it;
-//runs on the menu thread via MenuSceneUpdateHook. The reload follows the
-//vanilla sequence (ResetKartModels + loadCharacterMenuModelAsync) so the
-//game's own task, heaps and per-frame rebuild stay untouched; the styled
-//path is substituted by MenuArchiveLoadHook on every load.
+//reloads the menu archive when the selected style changed under it
 void ProcessMenuRebinds() {
     SectionMgr* mgr = SectionMgr::sInstance;
     if(mgr == nullptr || mgr->curSection == nullptr) return;
@@ -540,10 +488,7 @@ void ProcessMenuRebinds() {
     Page* top = mgr->curSection->GetTopLayerPage();
     const bool onStylePage = top != nullptr && IsStylePageId(top->pageId) && top->pageId != PAGE_BATTLE_KART_SELECT;
 
-    //restore poll: once the rebuild finished (state==4 && isLocked) the async
-    //task recreated the on-kart transformator via prepareDriverOnKartAnms;
-    //re-show and re-bind the driver. Runs BEFORE the page gate so backing out
-    //of the kart page mid-reload cannot leave the driver hidden forever.
+    //restore poll; runs before the page gate so a mid-reload page change still restores
     MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
     for(u8 hud = 0; hud < 4; ++hud) {
         if(!menuReloadOutstanding[hud]) continue;
@@ -553,24 +498,19 @@ void ProcessMenuRebinds() {
             //reload failed: re-show the driver and abort
             MenuDriverModel* liveDriver = modelMgr->driverModels->players[hud].playerModel;
             if(liveDriver != nullptr && liveDriver->model != nullptr) {
-                liveDriver->model->bitfield |= 0x100000;  // unblock the per-frame re-show
+                liveDriver->model->bitfield |= 0x100000;
             }
             modelMgr->driverModels->players[hud].isVisible = true;
             menuReloadOutstanding[hud] = false;
-            OS::Report("Pulsar MENU: RESTORE hud=%u ABORT (mm->state=0)\n", hud);
             continue;
         }
         if(mm->state != 4 || !modelMgr->kartModels->players[hud].isLocked) continue;
-        //fallback poll: the prepare hook normally restores the same frame the
-        //rebuild runs; this covers rebuilds our hook does not see.
         RestoreDriverAfterRebuild(hud);
     }
 
     if(top == nullptr || !onStylePage) return;
 
-    //first pass only synchronises the bound styles, no reloads. The page-entry
-    //load fetched vanilla (or a previously persisted styled archive), so a
-    //playstyle without an archive counts as vanilla here too.
+    //first pass only synchronises the bound styles with the playstyles
     static bool menuBoundsSynced = false;
     if(!menuBoundsSynced) {
         for(u8 hud = 0; hud < 4; ++hud) {
@@ -590,99 +530,35 @@ void ProcessMenuRebinds() {
     if(archiveMgr == nullptr) return;
     const u32 count = GetEffectiveLocalPlayerCount(*mgr);
 
-    //detect style changes and rebind synchronously in the same frame,
-    //mirroring the vanilla character-change flow (SwitchState, ResetKartModels,
-    //loadCharacterMenuModelAsync). The driver is routed to the stable charSel
-    //transformator and hidden for the reload window; the restore poll at the
-    //top of this function re-shows it once the rebuild is done.
+    //detect style changes and rebind the menu archive in the same frame
     for(u8 hud = 0; hud < count; ++hud) {
         const u8 style = playstyles[hud] & 3;
         MenuCharManager* mm = MenuManagerForHud(hud);
         if(mm == nullptr || mm->archiveHeap == nullptr) continue;
         if(mm->character < 0 || mm->character >= 0x30) continue;
-        //what the target style needs loaded: its own archive if one exists,
-        //else vanilla (missing styles count as vanilla). menuBoundStyle tracks
-        //the LOADED archive in the same terms, so a reload is required exactly
-        //when they differ - cycling between two styles that both lack an
-        //archive must NOT reload, and cycling from a LOADED styled archive to
-        //a style without one MUST reload vanilla, or the old styled model
-        //stays on screen.
+        //missing styles load vanilla; reload when the loaded archive differs
         const bool styled = style != 0 && MenuStyleFileExists(static_cast<u32>(mm->character), style);
         const u8 loadStyle = styled ? style : 0;
-        if(loadStyle == menuBoundStyle[hud]) {
-            //required archive already loaded. Log once per style click (not
-            //per frame) so missing-file selections stay visible in the log.
-            if(style != menuStyleLastSeen[hud]) {
-                menuStyleLastSeen[hud] = style;
-                if(loadStyle == 0) {
-                    OS::Report("Pulsar MENU: missing styled file hud=%u char=%s style=%u, using vanilla (already loaded)\n",
-                        hud, CHARACTER_NAMES[mm->character], style);
-                }
-            }
-            continue;
-        }
-        menuStyleLastSeen[hud] = style;
-
-        OS::Report("Pulsar MENU: REBIND hud=%u style %u->%u%s START locked=%u mm->state=%d\n",
-            hud, menuBoundStyle[hud], style, styled ? "" : " (vanilla)",
-            (u32)(modelMgr && modelMgr->kartModels ? modelMgr->kartModels->players[hud].isLocked : 2),
-            mm->state);
-        if(modelMgr == nullptr || modelMgr->driverModels == nullptr || modelMgr->kartModels == nullptr) {
-            OS::Report("Pulsar MENU: REBIND hud=%u SKIP (modelMgr=null)\n", hud);
-            continue;
-        }
+        if(loadStyle == menuBoundStyle[hud]) continue;
+        if(modelMgr == nullptr || modelMgr->driverModels == nullptr || modelMgr->kartModels == nullptr) continue;
         MenuDriverModel* liveDriver = modelMgr->driverModels->players[hud].playerModel;
-        if(liveDriver == nullptr || liveDriver->model == nullptr) {
-            OS::Report("Pulsar MENU: REBIND hud=%u SKIP (driver=%08x)\n", hud, (u32)liveDriver);
-            continue;
-        }
-        //Mirror the vanilla character-change flow: SwitchState(CHARSEL) internally
-        //calls ChangeTransformator(drawMdl, charSel, disableAllAnms=1), which
-        //STOPS the old on-kart anms while they are still valid (they live in
-        //the archive heap the reload is about to free) and then binds the
-        //STABLE charSel transformator (MEM1, survives the freeAll - REBIND log:
-        //charSel=811b6108 vs onKart=929ad0f4). A raw pointer write would skip
-        //the anm detach, leaving dangling anms attached to the driver's ScnObj;
-        //ScnMdlSimple::UpdateFrame then crashes on them after the reload.
-        //onKart is nulled because - unlike vanilla, which reloads from the
-        //character page - we are ON the vehicle page where the per-frame
-        //SwitchState(ON_VEHICLE_SELECT) would otherwise re-bind mAnmMgr to the
-        //freed on-kart transformator during the reload window.
-        OS::Report("Pulsar MENU: REBIND hud=%u driver=%08x model=%08x charSel=%08x onKart=%08x state=%d -> CHARSEL\n",
-            hud, (u32)liveDriver, (u32)liveDriver->model, (u32)liveDriver->charSelTransformator,
-            (u32)liveDriver->onKartTransformator, (u32)liveDriver->state);
+        if(liveDriver == nullptr || liveDriver->model == nullptr) continue;
+        //stops the old on-kart anms and binds the stable charSel transformator
         liveDriver->onKartTransformator = nullptr;
         liveDriver->SwitchState(hud, static_cast<MenuDriverModel::State>(MENU_DRIVER_STATE_CHARSEL));
-        //hide the driver for the whole reload window, using the same mechanism
-        //that provably hides the karts (ResetKartModels): remove the drawMdl
-        //from the ScnGroup so the render gather skips it, then clear the
-        //0x100000 G3D flag - both per-frame re-show paths early-return on it
-        //(MenuDriverModel::ToggleVisible 0x80830a5c and MenuModel::ToggleTransp-
-        //arent 0x8059f4f0), so neither the Update show loop nor Draw can undo
-        //the removal. Player.isVisible is kept in sync as a belt-and-braces.
-        //The restore poll re-shows the driver once the rebuild is done (or on
-        //failure / page change). The rebuild itself has no 0x100000 dependency
-        //on the driver drawMdl (verified: AnmMgr::__ct, CreateAndBindTransfor-
-        //mator checks 0x800 only, LinkDriverAnim, ChangeTransformator).
+        //hides the driver from the render gather until the restore re-shows it
         modelMgr->driverModels->players[hud].isVisible = false;
         liveDriver->model->ToggleVisible(false);
         liveDriver->model->bitfield &= ~0x100000;
         menuReloadOutstanding[hud] = true;
-        OS::Report("Pulsar MENU: REBIND hud=%u ResetKartModels START locked=%u\n", hud,
-            (u32)modelMgr->kartModels->players[hud].isLocked);
         modelMgr->ResetKartModels(hud);
-        OS::Report("Pulsar MENU: REBIND hud=%u ResetKartModels DONE locked=%u\n", hud,
-            (u32)modelMgr->kartModels->players[hud].isLocked);
         if(!RequestMenuReload(archiveMgr, hud, static_cast<u32>(mm->character), static_cast<u32>(mm->team))) {
-            //no reload will happen: re-show the driver immediately
+            //reload request failed: re-show the driver immediately
             liveDriver->model->bitfield |= 0x100000;
             modelMgr->driverModels->players[hud].isVisible = true;
             menuReloadOutstanding[hud] = false;
-            OS::Report("Pulsar MENU: REBIND hud=%u RequestMenuReload FAILED\n", hud);
         } else {
             menuBoundStyle[hud] = loadStyle;
-            OS::Report("Pulsar MENU: REBIND hud=%u RequestMenuReload OK locked=%u mm->state=%d\n", hud,
-                (u32)modelMgr->kartModels->players[hud].isLocked, mm->state);
         }
     }
 }
@@ -700,6 +576,19 @@ kmCall(0x80553b30, MenuSceneUpdateHook);
 
 namespace CustomVehicles {
 
+//race model loading: swap the vehicle name entry so vanilla builds the styled archive paths itself
+static ArchivesHolder* LoadKartArchiveHook(ArchiveMgr* archiveMgr, u8 playerId, KartId kart, CharacterId character,
+    u32 color, u32 type, EGG::Heap* decompressedHeap, EGG::Heap* archiveHeap) {
+    const u8 style = RaceStyleForPlayer(playerId, kart, character);
+    const char** entry = &VEHICLE_NAMES[kart];
+    const char* old = *entry;
+    if(style != 0) *entry = GeneratedVehiclePostfix(kart, style);
+    ArchivesHolder* holder = archiveMgr->LoadKartArchive(playerId, kart, character, color, type, decompressedHeap, archiveHeap);
+    *entry = old;
+    return holder;
+}
+kmCall(0x805540f4, LoadKartArchiveHook);
+
 static ArchivesHolder* LoadBackupKartArchiveHook(ArchiveMgr* archiveMgr, u8 playerId, KartId kart, CharacterId character,
     u32 color, u32 type, EGG::Heap* decompressedHeap, EGG::Heap* archiveHeap) {
     const u8 style = RaceStyleForPlayer(playerId, kart, character);
@@ -712,8 +601,7 @@ static ArchivesHolder* LoadBackupKartArchiveHook(ArchiveMgr* archiveMgr, u8 play
 }
 kmCall(0x80554198, LoadBackupKartArchiveHook);
 
-//styled archives can lack the star-color material data vanilla karts have; applying
-//them derefs null during race init. Ported from rr-pulsar: only apply when loaded.
+//only applies star colours when the styled archive actually provides them
 static void SetModelColorsIfReady(void* starAnm, void* drawMdl) {
     if(drawMdl == nullptr) return;
     const u8* model = static_cast<const u8*>(drawMdl);
@@ -723,6 +611,8 @@ static void SetModelColorsIfReady(void* starAnm, void* drawMdl) {
     }
     SetModelColorsImpl(starAnm, drawMdl);
 }
+kmCall(0x80592e24, SetModelColorsIfReady);
+kmCall(0x80592e40, SetModelColorsIfReady);
 
 }//namespace CustomVehicles
 }//namespace UI
