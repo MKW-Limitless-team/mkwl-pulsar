@@ -479,32 +479,56 @@ void ProcessMenuRebinds() {
     if(mgr == nullptr || mgr->curSection == nullptr) return;
 
     Page* top = mgr->curSection->GetTopLayerPage();
-    if(top == nullptr || !IsStylePageId(top->pageId)) return;
-    //battle menus are out of scope and would only ever reload vanilla
-    if(top->pageId == PAGE_BATTLE_KART_SELECT) return;
+    const bool onStylePage = top != nullptr && IsStylePageId(top->pageId) && top->pageId != PAGE_BATTLE_KART_SELECT;
 
     //restore poll: once the rebuild finished (state==4 && isLocked) the async
     //task recreated the on-kart transformator via prepareDriverOnKartAnms;
-    //re-bind the driver to it so it animates on the kart again. The page's own
-    //per-frame SwitchState would self-heal once onKart is fresh, this just
-    //closes the window explicitly.
+    //re-show and re-bind the driver. Runs BEFORE the page gate so backing out
+    //of the kart page mid-reload cannot leave the driver hidden forever.
     MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
     for(u8 hud = 0; hud < 4; ++hud) {
         if(!menuReloadOutstanding[hud]) continue;
         MenuCharManager* mm = MenuManagerForHud(hud);
         if(mm == nullptr || modelMgr == nullptr || modelMgr->driverModels == nullptr || modelMgr->kartModels == nullptr) continue;
+        if(mm->state == 0) {
+            //reload failed: re-show the driver and abort
+            MenuDriverModel* liveDriver = modelMgr->driverModels->players[hud].playerModel;
+            if(liveDriver != nullptr && liveDriver->model != nullptr) {
+                liveDriver->model->bitfield |= 0x100000;  // unblock the per-frame re-show
+            }
+            modelMgr->driverModels->players[hud].isVisible = true;
+            menuReloadOutstanding[hud] = false;
+            OS::Report("Pulsar MENU: RESTORE hud=%u ABORT (mm->state=0)\n", hud);
+            continue;
+        }
         if(mm->state != 4 || !modelMgr->kartModels->players[hud].isLocked) continue;
         MenuDriverModel* liveDriver = modelMgr->driverModels->players[hud].playerModel;
         if(liveDriver == nullptr || liveDriver->model == nullptr || liveDriver->onKartTransformator == nullptr) continue;
+        if(!onStylePage) {
+            //page changed mid-reload: just re-show the driver. state is still
+            //CHARSEL(0), which is the correct stance everywhere else (e.g. the
+            //character page); the page's own flow owns the stance from here.
+            liveDriver->model->bitfield |= 0x100000;  // unblock; next Update show loop re-inserts
+            modelMgr->driverModels->players[hud].isVisible = true;
+            menuReloadOutstanding[hud] = false;
+            OS::Report("Pulsar MENU: RESTORE hud=%u PAGE-CHANGE (visibility only)\n", hud);
+            continue;
+        }
         OS::Report("Pulsar MENU: RESTORE hud=%u driver=%08x onKart=%08x\n",
             hud, (u32)liveDriver, (u32)liveDriver->onKartTransformator);
         //vanilla stance entry: stops the charSel anms (disableAll=1), binds the
         //fresh onKart transformator, plays the on-kart anims, sets state=2.
         //A raw pointer write would skip the anm detach and leave stale active
-        //anms on the driver's ScnObj.
+        //anms on the driver's ScnObj. Restoring the 0x100000 flag re-enables
+        //the Update show loop, which re-inserts the drawMdl into the ScnGroup
+        //later this frame, so the driver renders again seated on the kart.
+        liveDriver->model->bitfield |= 0x100000;
+        modelMgr->driverModels->players[hud].isVisible = true;
         liveDriver->SwitchState(hud, static_cast<MenuDriverModel::State>(MENU_DRIVER_STATE_ONKART));
         menuReloadOutstanding[hud] = false;
     }
+
+    if(top == nullptr || !onStylePage) return;
 
     //first pass only synchronises the bound styles, no reloads
     static bool menuBoundsSynced = false;
@@ -519,12 +543,10 @@ void ProcessMenuRebinds() {
     const u32 count = GetEffectiveLocalPlayerCount(*mgr);
 
     //detect style changes and rebind synchronously in the same frame,
-    //mirroring the vanilla character-change flow (ResetKartModels then
-    //loadCharacterMenuModelAsync). No deferral, no latch, no raw pointing at
-    //transformators: both charSel and onKart live in the heap the reload
-    //frees, so the ONLY pointer that stays valid across the freeAll is NULL.
-    //Render::DrawMdl::calc (0x8055D23C) skips mAnmMgr==NULL, so nulling the
-    //driver's transformator keeps the draw pass safe for the whole reload.
+    //mirroring the vanilla character-change flow (SwitchState, ResetKartModels,
+    //loadCharacterMenuModelAsync). The driver is routed to the stable charSel
+    //transformator and hidden for the reload window; the restore poll at the
+    //top of this function re-shows it once the rebuild is done.
     for(u8 hud = 0; hud < count; ++hud) {
         const u8 style = playstyles[hud] & 3;
         if(style == menuBoundStyle[hud]) continue;
@@ -539,7 +561,6 @@ void ProcessMenuRebinds() {
             continue;
         }
 
-        MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
         OS::Report("Pulsar MENU: REBIND hud=%u style %u->%u START locked=%u mm->state=%d\n",
             hud, menuBoundStyle[hud], style,
             (u32)(modelMgr && modelMgr->kartModels ? modelMgr->kartModels->players[hud].isLocked : 2),
@@ -570,6 +591,20 @@ void ProcessMenuRebinds() {
             (u32)liveDriver->onKartTransformator, (u32)liveDriver->state);
         liveDriver->onKartTransformator = nullptr;
         liveDriver->SwitchState(hud, static_cast<MenuDriverModel::State>(MENU_DRIVER_STATE_CHARSEL));
+        //hide the driver for the whole reload window, using the same mechanism
+        //that provably hides the karts (ResetKartModels): remove the drawMdl
+        //from the ScnGroup so the render gather skips it, then clear the
+        //0x100000 G3D flag - both per-frame re-show paths early-return on it
+        //(MenuDriverModel::ToggleVisible 0x80830a5c and MenuModel::ToggleTransp-
+        //arent 0x8059f4f0), so neither the Update show loop nor Draw can undo
+        //the removal. Player.isVisible is kept in sync as a belt-and-braces.
+        //The restore poll re-shows the driver once the rebuild is done (or on
+        //failure / page change). The rebuild itself has no 0x100000 dependency
+        //on the driver drawMdl (verified: AnmMgr::__ct, CreateAndBindTransfor-
+        //mator checks 0x800 only, LinkDriverAnim, ChangeTransformator).
+        modelMgr->driverModels->players[hud].isVisible = false;
+        liveDriver->model->ToggleVisible(false);
+        liveDriver->model->bitfield &= ~0x100000;
         menuReloadOutstanding[hud] = true;
         OS::Report("Pulsar MENU: REBIND hud=%u ResetKartModels START locked=%u\n", hud,
             (u32)modelMgr->kartModels->players[hud].isLocked);
@@ -577,6 +612,10 @@ void ProcessMenuRebinds() {
         OS::Report("Pulsar MENU: REBIND hud=%u ResetKartModels DONE locked=%u\n", hud,
             (u32)modelMgr->kartModels->players[hud].isLocked);
         if(!RequestMenuReload(archiveMgr, hud, static_cast<u32>(mm->character), static_cast<u32>(mm->team))) {
+            //no reload will happen: re-show the driver immediately
+            liveDriver->model->bitfield |= 0x100000;
+            modelMgr->driverModels->players[hud].isVisible = true;
+            menuReloadOutstanding[hud] = false;
             OS::Report("Pulsar MENU: REBIND hud=%u RequestMenuReload FAILED\n", hud);
         } else {
             menuBoundStyle[hud] = style;
