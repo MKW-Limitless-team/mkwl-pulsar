@@ -1724,6 +1724,7 @@ BindBRRESImpl__13ModelDirectorFRQ34nw4r3g3d7ResFilePCcRCQ34nw4r3g3d7ResFileUi = 
 GetKartArchiveFile__10ArchiveMgrCFUcPCcPUi = 0x805413c8
 sInstance__12MenuModelMgr = 0x809c1988
 ResetKartModels__12MenuModelMgrFUc = 0x8059e550
+SwitchState__15MenuDriverModelFUcQ215MenuDriverModel5State = 0x8082fb78
 CalcMain__6ScnMgrFv = 0x80564adc
 
 #AudioManager

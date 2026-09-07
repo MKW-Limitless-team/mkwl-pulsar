@@ -324,17 +324,16 @@ static const u32 MENU_MANAGERS_OFFSET = 0x5AC; //menuCharacterManagers within Re
 static const u32 MENU_ARCHIVES_OFFSET = 0x8;   //kartArchives within ResourceManager/ArchiveMgr
 static const u32 MENU_ARCHIVE_STRIDE = 28;     //sizeof MultiDvdArchive
 
-//currently bound style per hud; a re-request is issued only on change
+//the archive that is currently loaded per hud, in style terms: a non-zero
+//value means the styled archive for that style is loaded, 0 means vanilla.
+//A style whose archive is missing counts as vanilla once loaded.
 static u8 menuBoundStyle[4] = {0, 0, 0, 0};
+//the last style label seen per hud, so skip logs print once per click
+static u8 menuStyleLastSeen[4] = {0, 0, 0, 0};
 //a style-triggered menu reload is in flight; restore the on-kart stance once
 //the rebuild finishes (state==4 && isLocked), when a fresh onKartTransformator
 //exists again
 static bool menuReloadOutstanding[4] = {false, false, false, false};
-//latches an out-of-band selection (dedicated multiplayer picker) into the
-//bound style so menu loads see it even though no rebind poll fires there
-void NoteMenuStyleSelected(u8 hud) {
-    if(hud < 4) menuBoundStyle[hud] = playstyles[hud] & 3;
-}
 //decomp-accurate MenuDriverModel state ids (mkw-pal.c enum FUN_8082fb78_state):
 //the header labels these 1/2, but the game uses 0 = character-select and
 //2 = on-vehicle (kart). Vanilla passes exactly 0 and 2.
@@ -351,6 +350,14 @@ typedef bool (*RequestMenuReloadFunc)(ArchiveMgr* mgr, u8 hud, u32 character, u3
 static RequestMenuReloadFunc const RequestMenuReload = reinterpret_cast<RequestMenuReloadFunc>(0x80542210);
 typedef bool (*IsLoadedFunc)(void* archive);
 static IsLoadedFunc const IsLoaded = reinterpret_cast<IsLoadedFunc>(0x8052a800);
+typedef void (*PrepareDriverOnKartAnmsFunc)(MenuDriverModelMgr* mgr, u32 hud);
+static PrepareDriverOnKartAnmsFunc const RealPrepareDriverOnKartAnms = reinterpret_cast<PrepareDriverOnKartAnmsFunc>(0x80830c64);
+
+static MenuCharManager* MenuManagerForHud(u8 hud) {
+    ArchiveMgr* mgr = ArchiveMgr::sInstance;
+    if(mgr == nullptr || hud >= 4) return nullptr;
+    return reinterpret_cast<MenuCharManager*>(reinterpret_cast<u8*>(mgr) + MENU_MANAGERS_OFFSET + hud * sizeof(MenuCharManager));
+}
 
 static const char* GeneratedMenuPostfix(u32 character, u32 style) {
     if(character >= 48 || style == 0 || style >= STYLE_COUNT) return nullptr;
@@ -386,6 +393,19 @@ static bool MenuStyleFileExists(u32 character, u32 style) {
     OS::Report("Pulsar MENU: probe char=%s style=%u -> %s\n",
         CHARACTER_NAMES[character], style, exists ? "exists" : "missing");
     return exists;
+}
+
+//latches an out-of-band selection (dedicated multiplayer picker) into the
+//bound style so menu loads see it even though no rebind poll fires there.
+//Styles without an archive count as vanilla (0) - the archive-load hook's own
+//exists-check would fall back to vanilla anyway, and menuBoundStyle tracks
+//the LOADED archive, not the selected style label.
+void NoteMenuStyleSelected(u8 hud) {
+    if(hud >= 4) return;
+    MenuCharManager* mm = MenuManagerForHud(hud);
+    if(mm == nullptr || mm->character < 0 || mm->character >= 0x30) return;
+    const u8 style = playstyles[hud] & 3;
+    menuBoundStyle[hud] = (style != 0 && MenuStyleFileExists(static_cast<u32>(mm->character), style)) ? style : 0;
 }
 
 static bool MenuPathIsBattle(const char* path) {
@@ -463,11 +483,50 @@ kmCall(0x80541FB8, MenuArchiveLoadHook);
 //sync variant loader's load call (same register convention)
 kmCall(0x80542198, MenuArchiveLoadHook);
 
-static MenuCharManager* MenuManagerForHud(u8 hud) {
-    ArchiveMgr* mgr = ArchiveMgr::sInstance;
-    if(mgr == nullptr || hud >= 4) return nullptr;
-    return reinterpret_cast<MenuCharManager*>(reinterpret_cast<u8*>(mgr) + MENU_MANAGERS_OFFSET + hud * sizeof(MenuCharManager));
+//re-show and re-bind the driver after a reload's rebuild. Called from the
+//prepareDriverOnKartAnms hook (same frame the rebuild runs in) and from the
+//restore poll as a fallback. Restores the 0x100000 G3D flag (the next Update
+//show loop re-inserts the drawMdl into the ScnGroup), makes the driver
+//visible again, and re-enters the on-kart stance via the vanilla SwitchState
+//(stops the charSel anms, binds the fresh onKart, plays the kart anims).
+//Off a style page only visibility is restored: state is still CHARSEL(0),
+//the correct stance everywhere else, and the page's own flow owns the stance.
+static void RestoreDriverAfterRebuild(u8 hud) {
+    MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
+    if(modelMgr == nullptr || modelMgr->driverModels == nullptr) return;
+    MenuDriverModel* liveDriver = modelMgr->driverModels->players[hud].playerModel;
+    if(liveDriver == nullptr || liveDriver->model == nullptr || liveDriver->onKartTransformator == nullptr) return;
+    SectionMgr* mgr = SectionMgr::sInstance;
+    bool onStylePage = false;
+    if(mgr != nullptr && mgr->curSection != nullptr) {
+        Page* top = mgr->curSection->GetTopLayerPage();
+        onStylePage = top != nullptr && IsStylePageId(top->pageId) && top->pageId != PAGE_BATTLE_KART_SELECT;
+    }
+    OS::Report("Pulsar MENU: RESTORE hud=%u driver=%08x onKart=%08x%s\n",
+        hud, (u32)liveDriver, (u32)liveDriver->onKartTransformator, onStylePage ? "" : " (visibility only)");
+    liveDriver->model->bitfield |= 0x100000;
+    modelMgr->driverModels->players[hud].isVisible = true;
+    if(onStylePage) {
+        //vanilla stance entry: stops the charSel anms (disableAll=1), binds the
+        //fresh onKart transformator, plays the on-kart anims, sets state=2.
+        //A raw pointer write would skip the anm detach and leave stale active
+        //anms on the driver's ScnObj.
+        liveDriver->SwitchState(hud, static_cast<MenuDriverModel::State>(MENU_DRIVER_STATE_ONKART));
+    }
+    menuReloadOutstanding[hud] = false;
 }
+
+//same-frame restore: prepareDriverOnKartAnms runs at the end of every rebuild
+//(MenuKartModelMgr::Load, main thread, calc phase) and is the moment the fresh
+//on-kart transformator exists. Restoring here instead of polling the next
+//frame saves one frame of hidden driver.
+static void PrepareDriverOnKartAnmsHook(MenuDriverModelMgr* mgr, u32 hud) {
+    RealPrepareDriverOnKartAnms(mgr, hud);
+    if(hud < 4 && menuReloadOutstanding[hud]) {
+        RestoreDriverAfterRebuild(static_cast<u8>(hud));
+    }
+}
+kmCall(0x80832ea4, PrepareDriverOnKartAnmsHook);
 
 //re-request the menu archive when the selected style changed under it;
 //runs on the menu thread via MenuSceneUpdateHook. The reload follows the
@@ -502,38 +561,27 @@ void ProcessMenuRebinds() {
             continue;
         }
         if(mm->state != 4 || !modelMgr->kartModels->players[hud].isLocked) continue;
-        MenuDriverModel* liveDriver = modelMgr->driverModels->players[hud].playerModel;
-        if(liveDriver == nullptr || liveDriver->model == nullptr || liveDriver->onKartTransformator == nullptr) continue;
-        if(!onStylePage) {
-            //page changed mid-reload: just re-show the driver. state is still
-            //CHARSEL(0), which is the correct stance everywhere else (e.g. the
-            //character page); the page's own flow owns the stance from here.
-            liveDriver->model->bitfield |= 0x100000;  // unblock; next Update show loop re-inserts
-            modelMgr->driverModels->players[hud].isVisible = true;
-            menuReloadOutstanding[hud] = false;
-            OS::Report("Pulsar MENU: RESTORE hud=%u PAGE-CHANGE (visibility only)\n", hud);
-            continue;
-        }
-        OS::Report("Pulsar MENU: RESTORE hud=%u driver=%08x onKart=%08x\n",
-            hud, (u32)liveDriver, (u32)liveDriver->onKartTransformator);
-        //vanilla stance entry: stops the charSel anms (disableAll=1), binds the
-        //fresh onKart transformator, plays the on-kart anims, sets state=2.
-        //A raw pointer write would skip the anm detach and leave stale active
-        //anms on the driver's ScnObj. Restoring the 0x100000 flag re-enables
-        //the Update show loop, which re-inserts the drawMdl into the ScnGroup
-        //later this frame, so the driver renders again seated on the kart.
-        liveDriver->model->bitfield |= 0x100000;
-        modelMgr->driverModels->players[hud].isVisible = true;
-        liveDriver->SwitchState(hud, static_cast<MenuDriverModel::State>(MENU_DRIVER_STATE_ONKART));
-        menuReloadOutstanding[hud] = false;
+        //fallback poll: the prepare hook normally restores the same frame the
+        //rebuild runs; this covers rebuilds our hook does not see.
+        RestoreDriverAfterRebuild(hud);
     }
 
     if(top == nullptr || !onStylePage) return;
 
-    //first pass only synchronises the bound styles, no reloads
+    //first pass only synchronises the bound styles, no reloads. The page-entry
+    //load fetched vanilla (or a previously persisted styled archive), so a
+    //playstyle without an archive counts as vanilla here too.
     static bool menuBoundsSynced = false;
     if(!menuBoundsSynced) {
-        for(u8 hud = 0; hud < 4; ++hud) menuBoundStyle[hud] = playstyles[hud] & 3;
+        for(u8 hud = 0; hud < 4; ++hud) {
+            MenuCharManager* mm = MenuManagerForHud(hud);
+            const u8 style = playstyles[hud] & 3;
+            if(mm == nullptr || mm->character < 0 || mm->character >= 0x30) {
+                menuBoundStyle[hud] = 0;
+                continue;
+            }
+            menuBoundStyle[hud] = (style != 0 && MenuStyleFileExists(static_cast<u32>(mm->character), style)) ? style : 0;
+        }
         menuBoundsSynced = true;
         return;
     }
@@ -549,20 +597,34 @@ void ProcessMenuRebinds() {
     //top of this function re-shows it once the rebuild is done.
     for(u8 hud = 0; hud < count; ++hud) {
         const u8 style = playstyles[hud] & 3;
-        if(style == menuBoundStyle[hud]) continue;
         MenuCharManager* mm = MenuManagerForHud(hud);
         if(mm == nullptr || mm->archiveHeap == nullptr) continue;
         if(mm->character < 0 || mm->character >= 0x30) continue;
-        //no styled archive for this combination: vanilla already renders
-        if(style != 0 && !MenuStyleFileExists(static_cast<u32>(mm->character), style)) {
-            menuBoundStyle[hud] = style;
-            OS::Report("Pulsar MENU: missing styled file hud=%u char=%s style=%u, using vanilla\n",
-                hud, CHARACTER_NAMES[mm->character], style);
+        //what the target style needs loaded: its own archive if one exists,
+        //else vanilla (missing styles count as vanilla). menuBoundStyle tracks
+        //the LOADED archive in the same terms, so a reload is required exactly
+        //when they differ - cycling between two styles that both lack an
+        //archive must NOT reload, and cycling from a LOADED styled archive to
+        //a style without one MUST reload vanilla, or the old styled model
+        //stays on screen.
+        const bool styled = style != 0 && MenuStyleFileExists(static_cast<u32>(mm->character), style);
+        const u8 loadStyle = styled ? style : 0;
+        if(loadStyle == menuBoundStyle[hud]) {
+            //required archive already loaded. Log once per style click (not
+            //per frame) so missing-file selections stay visible in the log.
+            if(style != menuStyleLastSeen[hud]) {
+                menuStyleLastSeen[hud] = style;
+                if(loadStyle == 0) {
+                    OS::Report("Pulsar MENU: missing styled file hud=%u char=%s style=%u, using vanilla (already loaded)\n",
+                        hud, CHARACTER_NAMES[mm->character], style);
+                }
+            }
             continue;
         }
+        menuStyleLastSeen[hud] = style;
 
-        OS::Report("Pulsar MENU: REBIND hud=%u style %u->%u START locked=%u mm->state=%d\n",
-            hud, menuBoundStyle[hud], style,
+        OS::Report("Pulsar MENU: REBIND hud=%u style %u->%u%s START locked=%u mm->state=%d\n",
+            hud, menuBoundStyle[hud], style, styled ? "" : " (vanilla)",
             (u32)(modelMgr && modelMgr->kartModels ? modelMgr->kartModels->players[hud].isLocked : 2),
             mm->state);
         if(modelMgr == nullptr || modelMgr->driverModels == nullptr || modelMgr->kartModels == nullptr) {
@@ -618,7 +680,7 @@ void ProcessMenuRebinds() {
             menuReloadOutstanding[hud] = false;
             OS::Report("Pulsar MENU: REBIND hud=%u RequestMenuReload FAILED\n", hud);
         } else {
-            menuBoundStyle[hud] = style;
+            menuBoundStyle[hud] = loadStyle;
             OS::Report("Pulsar MENU: REBIND hud=%u RequestMenuReload OK locked=%u mm->state=%d\n", hud,
                 (u32)modelMgr->kartModels->players[hud].isLocked, mm->state);
         }
