@@ -22,8 +22,11 @@ public:
 
 class MenuDriverModel : public MenuModel {
 public:
+    //Game enum (mkw-pal.c FUN_8082fb78_state):
+    //0 = ON_CHARACTER_SELECT, 1 = CHARACTER_SELECTED,
+    //2 = ON_VEHICLE_SELECT,  3 = VEHICLE_SELECTED
     enum State {
-        MENUDRIVERMODEL_STATE_ONCHARSELECT = 1,
+        MENUDRIVERMODEL_STATE_ONCHARSELECT = 0,
         MENUDRIVERMODEL_STATE_ONKARTSELECT = 2
     };
     MenuDriverModel(); //8082f860
@@ -33,7 +36,10 @@ public:
     void SwitchState(u8 playerId, State newState); //8082fb78 for example with state == 2, will switch to OnKartAnms
     void Draw(u8 playerId); //80830a80 toggles chars not shown off so it only shows one model at a time
 
-    u8 unknown_0x4[4];
+    //Base MenuModel occupies +0x0 (vtable) and +0x4 (model); these fields
+    //must start at +0x8 to match the game's struct DriverModel. A stray
+    //padding field before `state` shifts every field down by 4 and corrupts
+    //the transformator/state reads the rebind logic depends on.
     State state; //0x8
     ModelTransformator* charSelTransformator; //0xC
     ModelTransformator* onKartTransformator; //0x10

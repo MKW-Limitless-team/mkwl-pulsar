@@ -15,6 +15,7 @@ extern u8 cpuPlaystyles[12];
 namespace CustomVehicles {
 
 void ProcessStyleInput();
+void NoteMenuStyleSelected(u8 hud);
 u8 StyleForPlayer(u8 playerId);
 void RandomiseCpuPlaystyles();
 

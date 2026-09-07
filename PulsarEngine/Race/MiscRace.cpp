@@ -4,11 +4,24 @@
 #include <MarioKartWii/UI/Ctrl/CtrlRace/CtrlRaceResult.hpp>
 #include <MarioKartWii/GlobalFunctions.hpp>
 #include <MarioKartWii/Driver/DriverManager.hpp>
+#include <MarioKartWii/UI/Section/SectionMgr.hpp>
 #include <Settings/Settings.hpp>
 #include <UI/CustomVehicles/CustomVehicles.hpp>
 
 namespace Pulsar {
 namespace Race {
+
+//CPU playstyles are rolled once per session and kept stable: GP tracks
+//progress in raceNumber, but offline VS tracks it in vsRaceNumber
+//(Racedata raceNumber stays 0 there), so each needs its own counter
+static bool IsFirstRaceOfSession(const RacedataScenario& scenario) {
+    if(scenario.settings.gamemode == MODE_VS_RACE) {
+        const SectionMgr* mgr = SectionMgr::sInstance;
+        if(mgr == nullptr || mgr->sectionParams == nullptr) return true;
+        return mgr->sectionParams->vsRaceNumber == 0;
+    }
+    return scenario.settings.raceNumber == 0;
+}
 
 static void NonGhostPlayerCount(RacedataScenario& scenario, u8* playerCount, u8* screenCount, u8* localPlayerCount) {
     scenario.ComputePlayerCounts(playerCount, screenCount, localPlayerCount);
@@ -16,7 +29,7 @@ static void NonGhostPlayerCount(RacedataScenario& scenario, u8* playerCount, u8*
     u8 realPlayers = *playerCount;
     if (scenario.settings.gamemode != MODE_TIME_TRIAL) for (int i = 0; i < 12; ++i) if (scenario.players[i].playerType == PLAYER_GHOST) --realPlayers;
     system->nonTTGhostPlayersCount = realPlayers;
-    if (scenario.settings.gamemode == MODE_VS_RACE || scenario.settings.raceNumber == 0) {
+    if (IsFirstRaceOfSession(scenario)) {
         UI::CustomVehicles::RandomiseCpuPlaystyles();
     }
 }

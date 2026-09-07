@@ -212,6 +212,7 @@ void PlaystyleSelect::CycleStyle(u8 hud, int step) {
     if(this->transitionPending || this->confirmed[hud]) return;
     u32 style = (playstyles[hud] + STYLE_COUNT + step) % STYLE_COUNT;
     playstyles[hud] = static_cast<u8>(style);
+    CustomVehicles::NoteMenuStyleSelected(hud);
     this->UpdateStyleDisplay(hud);
     Audio::RSARPlayer::PlaySoundById(step > 0 ? SOUND_ID_RIGHT_ARROW_PRESS : SOUND_ID_LEFT_ARROW_PRESS, 0, nullptr);
 }
