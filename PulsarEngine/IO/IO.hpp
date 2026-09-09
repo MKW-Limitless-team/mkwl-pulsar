@@ -14,7 +14,8 @@ typedef char FileName[255];
 enum IOType {
     IOType_RIIVO = 0,
     IOType_ISO = 1,
-    IOType_DOLPHIN = 2
+    IOType_DOLPHIN = 2,
+    IOType_SD = 3 
 };
 
 enum FileMode {

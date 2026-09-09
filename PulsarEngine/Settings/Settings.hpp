@@ -53,6 +53,7 @@ private:
 public:
     Mgr() : rawBin(nullptr) {}
     static const Mgr& Get() { return *sInstance; }
+    static bool IsCreated() { return sInstance != nullptr; }
 
     bool HasTrophy(u32 crc32, TTMode mode) const;
     bool HasTrophy(PulsarId id, TTMode mode) const;
