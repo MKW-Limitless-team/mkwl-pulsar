@@ -147,7 +147,7 @@
   3001	= CT Layout
   3002	= Music
   3003  = Hard CPU
-  3004  = Vehicle Info
+  3004  = My Stuff Folder
   3010	= Disabled
   3011	= Enabled
   3020	= Default
@@ -157,8 +157,10 @@
   3032  = Disable Race
   3040  = Disabled
   3041  = Enabled
-  3050  = Disabled
-  3051  = Enabled
+  3050  = Off
+  3051  = My Stuff 1
+  3052  = My Stuff 2
+  3053  = My Stuff 3
 
   3100	= Menus will animate at the default speed.
   3101	= Removes the animation on button press.
@@ -169,8 +171,10 @@
   3302	= Disables only race BRSTMs.
   3400  = CPU's will behave normally in races.
   3401  = CPU's will be a lot faster than normal.
-  3500  = Don't show the vehicle info [RESTART GAME].
-  3501  = Show vehicle info next to the name [RESTART GAME].
+  3500  = Loose override files are not applied.
+  3501  = Loose override files in My Stuff 1 are applied on load.
+  3502  = Loose override files in My Stuff 2 are applied on load.
+  3503  = Loose override files in My Stuff 3 are applied on load.
   3700	= Boot To Limitlink
   3710	= Disabled
   3711	= License 1
