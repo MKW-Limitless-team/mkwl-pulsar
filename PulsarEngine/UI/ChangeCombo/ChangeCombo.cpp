@@ -2,6 +2,7 @@
 #include <MarioKartWii/GlobalFunctions.hpp>
 #include <MarioKartWii/UI/Page/Other/SELECTStageMgr.hpp>
 #include <UI/ChangeCombo/ChangeCombo.hpp>
+#include <UI/CustomVehicles/CustomVehicles.hpp>
 #include <PulsarSystem.hpp>
 #include <Gamemodes/KO/KOMgr.hpp>
 
@@ -82,6 +83,9 @@ static void RandomizeCombo() {
         sectionParams->karts[hudId] = kart;
         sectionParams->combos[hudId].selCharacter = character;
         sectionParams->combos[hudId].selKart = kart;
+
+        const u8 style = static_cast<u8>(random.NextLimited(STYLE_COUNT));
+        CustomVehicles::NoteComboRandomisedStyle(hudId, character, style);
 
         ExpCharacterSelect* charSelect = section->Get<ExpCharacterSelect>(); //guaranteed to exist on this page
         charSelect->randomizedCharIdx[hudId] = character;

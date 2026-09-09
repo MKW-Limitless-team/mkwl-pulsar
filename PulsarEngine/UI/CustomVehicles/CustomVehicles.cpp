@@ -384,6 +384,14 @@ void NoteMenuStyleSelected(u8 hud) {
     menuBoundStyle[hud] = (style != 0 && MenuStyleFileExists(static_cast<u32>(mm->character), style)) ? style : 0;
 }
 
+//sets the playstyle for a hud randomised by the change-combo flow, and latches
+//the bound style for the newly picked character so the first menu load is styled
+void NoteComboRandomisedStyle(u8 hud, u32 character, u8 style) {
+    if(hud >= 4 || character >= 0x30) return;
+    playstyles[hud] = style & 3;
+    menuBoundStyle[hud] = (style != 0 && MenuStyleFileExists(character, style)) ? style : 0;
+}
+
 static bool MenuPathIsBattle(const char* path) {
     u32 len = 0;
     while(len < 128 && path[len] != '\0') ++len;

@@ -16,6 +16,7 @@ namespace CustomVehicles {
 
 void ProcessStyleInput();
 void NoteMenuStyleSelected(u8 hud);
+void NoteComboRandomisedStyle(u8 hud, u32 character, u8 style);
 u8 StyleForPlayer(u8 playerId);
 void RandomiseCpuPlaystyles();
 
