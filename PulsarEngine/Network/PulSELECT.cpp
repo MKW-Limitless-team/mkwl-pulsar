@@ -442,7 +442,7 @@ void ProcessNewPacketVoting() {
         const u32 aidBit = 1 << aid;
         const u32 localAidBit = 1 << localAid;
         const u32 availableAids = sub.availableAids;
-        if ((aidBit & availableAids) == 0 || aid == localAid) continue;
+        if (((aidBit & availableAids) == 0 && aid != hostAid) || aid == localAid) continue;
 
         const PulSELECT& curRecv = handler->receivedPackets[aid];
         PulSELECT& send = handler->toSendPacket;
