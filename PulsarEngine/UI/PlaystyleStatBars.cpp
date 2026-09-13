@@ -188,7 +188,7 @@ static void ComputeRanges() {
             values[e] = ExtractStat(kartParamEntries + e * ENTRY_SIZE, stat);
         }
         Sort(values, total);
-        rangeLo[stat] = values[(5 * (total - 1)) / 100];
+        rangeLo[stat] = values[0];
         rangeHi[stat] = values[(95 * (total - 1)) / 100];
     }
     rangesComputed = true;
@@ -274,10 +274,10 @@ static void UpdateIcons(nw4r::lyt::Pane* parent, KartId kart, u8 style) {
 
 static bool IsMultiplayerPage(const CtrlMenuMachineGraph* graph);
 static const char* BUTTON_PROMPT_PANE = "button_prompt";
-static const u32 BMG_BUTTON_WHEEL   = 0x8800;
-static const u32 BMG_BUTTON_NUNCHUK = 0x8801;
-static const u32 BMG_BUTTON_CLASSIC = 0x8802;
-static const u32 BMG_BUTTON_GCN     = 0x8803;
+static const u32 BMG_BUTTON_WHEEL   = 0x8A00;
+static const u32 BMG_BUTTON_NUNCHUK = 0x8A01;
+static const u32 BMG_BUTTON_CLASSIC = 0x8A02;
+static const u32 BMG_BUTTON_GCN     = 0x8A03;
 
 static ControllerType GetControllerType(u8 hud) {
     SectionMgr* mgr = SectionMgr::sInstance;
@@ -423,15 +423,9 @@ void GraphUpdateHook(CtrlMenuMachineGraph* graph, CharacterId character, KartId 
         const float baseValue = ExtractStat(baseEntry, stat);
         const float styledValue = ExtractStat(styledEntry, stat);
 
-        float clampedBase = baseValue;
-        if(clampedBase < lo) clampedBase = lo;
-        if(clampedBase > hi) clampedBase = hi;
-        const float baseNorm = hi > lo ? (clampedBase - lo) / (hi - lo) : 0.5f;
+        const float baseNorm = hi > lo ? (baseValue - lo) / (hi - lo) : 0.5f;
 
-        float clampedStyled = styledValue;
-        if(clampedStyled < lo) clampedStyled = lo;
-        if(clampedStyled > hi) clampedStyled = hi;
-        const float styledNorm = hi > lo ? (clampedStyled - lo) / (hi - lo) : 0.5f;
+        const float styledNorm = hi > lo ? (styledValue - lo) / (hi - lo) : 0.5f;
 
         const bool nerfed = style != 0 && styledValue < baseValue;
         const bool buffed = style != 0 && styledValue > baseValue;

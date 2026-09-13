@@ -1,4 +1,5 @@
 #include <core/nw4r/ut/Misc.hpp>
+#include <core/rvl/OS/OS.hpp>
 #include <MarioKartWii/GlobalFunctions.hpp>
 #include <MarioKartWii/UI/Page/Other/SELECTStageMgr.hpp>
 #include <UI/ChangeCombo/ChangeCombo.hpp>
@@ -70,28 +71,38 @@ void ExpVR::OnInit() {
 }
 
 static void RandomizeCombo() {
+    OS::Report("Pulsar DEBUG: RandomizeCombo called\n");
     Random random;
     const SectionMgr* sectionMgr = SectionMgr::sInstance;
-    const Section* section = sectionMgr->curSection;
-    SectionParams* sectionParams = sectionMgr->sectionParams;
+    const Section* section = nullptr;
+    SectionParams* sectionParams = nullptr;
+    if(sectionMgr == nullptr) { OS::Report("Pulsar DEBUG: RandomizeCombo: sectionMgr null\n"); return; }
+    section = sectionMgr->curSection;
+    sectionParams = sectionMgr->sectionParams;
+    if(section == nullptr || sectionParams == nullptr) { OS::Report("Pulsar DEBUG: RandomizeCombo: section/sectionParams null\n"); return; }
+    OS::Report("Pulsar DEBUG: RandomizeCombo: localPlayerCount=%d\n", sectionParams->localPlayerCount);
+    u32 randomizedKartPosArr[4] = {0, 0, 0, 0};
+    CharacterId characterArr[4] = {CHARACTER_NONE, CHARACTER_NONE, CHARACTER_NONE, CHARACTER_NONE};
     for(int hudId = 0; hudId < sectionParams->localPlayerCount; ++hudId) {
         const CharacterId character = random.NextLimited<CharacterId>(24);
         const u32 randomizedKartPos = random.NextLimited(12);
         const KartId kart = kartsSortedByWeight[GetCharacterWeightClass(character)][randomizedKartPos];
+        characterArr[hudId] = character;
+        randomizedKartPosArr[hudId] = randomizedKartPos;
 
         sectionParams->characters[hudId] = character;
         sectionParams->karts[hudId] = kart;
         sectionParams->combos[hudId].selCharacter = character;
         sectionParams->combos[hudId].selKart = kart;
+    }
+    CustomVehicles::RandomiseLocalPlaystyles();
 
-        const u8 style = static_cast<u8>(random.NextLimited(STYLE_COUNT));
-        CustomVehicles::NoteComboRandomisedStyle(hudId, character, style);
-
+    for(int hudId = 0; hudId < sectionParams->localPlayerCount; ++hudId) {
         ExpCharacterSelect* charSelect = section->Get<ExpCharacterSelect>(); //guaranteed to exist on this page
-        charSelect->randomizedCharIdx[hudId] = character;
-        charSelect->rolledCharIdx[hudId] = character;
+        charSelect->randomizedCharIdx[hudId] = characterArr[hudId];
+        charSelect->rolledCharIdx[hudId] = characterArr[hudId];
         charSelect->rouletteCounter = ExpVR::randomDuration;
-        charSelect->ctrlMenuCharSelect.selectedCharacter = character;
+        charSelect->ctrlMenuCharSelect.selectedCharacter = characterArr[hudId];
         charSelect->controlsManipulatorManager.inaccessible = true;
         ExpBattleKartSelect* battleKartSelect = section->Get<ExpBattleKartSelect>();
         if(battleKartSelect != nullptr) {
@@ -102,15 +113,15 @@ static void RandomizeCombo() {
         ExpKartSelect* kartSelect = section->Get<ExpKartSelect>();
         if(kartSelect != nullptr) {
             kartSelect->rouletteCounter = ExpVR::randomDuration;
-            kartSelect->randomizedKartPos = randomizedKartPos;
-            kartSelect->rolledKartPos = randomizedKartPos;
+            kartSelect->randomizedKartPos = randomizedKartPosArr[hudId];
+            kartSelect->rolledKartPos = randomizedKartPosArr[hudId];
             kartSelect->controlsManipulatorManager.inaccessible = true;
         }
 
         ExpMultiKartSelect* multiKartSelect = section->Get<ExpMultiKartSelect>();
         if(multiKartSelect != nullptr) {
             multiKartSelect->rouletteCounter = ExpVR::randomDuration;
-            multiKartSelect->rolledKartPos[0] = randomizedKartPos;
+            multiKartSelect->rolledKartPos[0] = randomizedKartPosArr[hudId];
             u32 options = 12;
             if(IsBattle()) options = 2;
             multiKartSelect->rolledKartPos[1] = random.NextLimited(options);

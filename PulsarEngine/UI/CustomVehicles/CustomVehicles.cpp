@@ -18,6 +18,7 @@
 #include <core/rvl/dvd/dvd.hpp>
 #include <core/rvl/OS/OS.hpp>
 #include <core/egg/mem/Heap.hpp>
+#include <runtimeWrite.hpp>
 
 namespace Pulsar {
 namespace UI {
@@ -27,6 +28,11 @@ u8 ghostPlaystyles[4] = {0, 0, 0, 0};
 u8 cpuPlaystyles[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 namespace CustomVehicles {
+
+//style of the archive currently loaded per hud; 0 = vanilla (missing styles load vanilla)
+static u8 menuBoundStyle[4] = {0, 0, 0, 0};
+//set while a style-triggered archive reload is in flight
+static bool menuReloadOutstanding[4] = {false, false, false, false};
 
 //vanilla data tables
 extern "C" const char* VEHICLE_NAMES[36];
@@ -151,6 +157,24 @@ void RandomiseCpuPlaystyles() {
         u8 chosen = order[random.NextLimited(3)]; // Pure random selection
         
         cpuPlaystyles[i] = chosen;
+    }
+}
+
+//randomise playstyle for each local player using their already-selected character
+void RandomiseLocalPlaystyles() {
+    SectionMgr* sectionMgr = SectionMgr::sInstance;
+    if(sectionMgr == nullptr || sectionMgr->curSection == nullptr) { OS::Report("Pulsar DEBUG: RandomiseLocalPlaystyles: sectionMgr/section null\n"); return; }
+    SectionParams* sectionParams = sectionMgr->sectionParams;
+    if(sectionParams == nullptr) { OS::Report("Pulsar DEBUG: RandomiseLocalPlaystyles: sectionParams null\n"); return; }
+    const u32 count = sectionParams->localPlayerCount;
+    OS::Report("Pulsar DEBUG: RandomiseLocalPlaystyles: count=%d\n", count);
+    Random random;
+    for(u32 hudId = 0; hudId < count; ++hudId) {
+        const CharacterId character = sectionParams->characters[hudId];
+        const u8 style = static_cast<u8>(random.NextLimited(STYLE_COUNT));
+        sectionParams->combos[hudId].selCharacter = character;
+        sectionParams->combos[hudId].selKart = sectionParams->karts[hudId];
+        NoteComboRandomisedStyle(static_cast<u8>(hudId), character, style);
     }
 }
 
@@ -291,6 +315,9 @@ void ProcessStyleInput() {
         else if((pressed & nextButton) != 0) step = 1;
         else continue;
 
+        //don't change style again before the previous model reload has fully loaded
+        if(menuReloadOutstanding[hud]) continue;
+
         //cycle through all styles; vehicles without a style file fall back to vanilla
         u32 style = playstyles[hud];
         style = (style + STYLE_COUNT + step) % STYLE_COUNT;
@@ -316,10 +343,6 @@ static const u32 MENU_MANAGERS_OFFSET = 0x5AC; //menuCharacterManagers within Re
 static const u32 MENU_ARCHIVES_OFFSET = 0x8;   //kartArchives within ResourceManager/ArchiveMgr
 static const u32 MENU_ARCHIVE_STRIDE = 28;     //sizeof MultiDvdArchive
 
-//style of the archive currently loaded per hud; 0 = vanilla (missing styles load vanilla)
-static u8 menuBoundStyle[4] = {0, 0, 0, 0};
-//set while a style-triggered archive reload is in flight
-static bool menuReloadOutstanding[4] = {false, false, false, false};
 //game-accurate MenuDriverModel state ids (the header's 1/2 are wrong)
 static const u32 MENU_DRIVER_STATE_CHARSEL = 0;
 static const u32 MENU_DRIVER_STATE_ONKART = 2;
@@ -328,12 +351,15 @@ static u8 menuStyleExists[48][STYLE_COUNT] = {};
 //"<char>-<style>" postfixes, generated once
 static char generatedMenuPostfixes[48][STYLE_COUNT][32];
 
+kmRuntimeUse(0x8052A954);
 typedef void (*MenuArchiveLoadFunc)(void* archive, char* path, EGG::Heap* archiveHeap, EGG::Heap* fileHeap, u32 unused);
-static MenuArchiveLoadFunc const RealMenuArchiveLoad = reinterpret_cast<MenuArchiveLoadFunc>(0x8052A954);
+static MenuArchiveLoadFunc const RealMenuArchiveLoad = reinterpret_cast<MenuArchiveLoadFunc>(kmRuntimeAddr(0x8052A954));
+kmRuntimeUse(0x80542210);
 typedef bool (*RequestMenuReloadFunc)(ArchiveMgr* mgr, u8 hud, u32 character, u32 gamemode);
-static RequestMenuReloadFunc const RequestMenuReload = reinterpret_cast<RequestMenuReloadFunc>(0x80542210);
+static RequestMenuReloadFunc const RequestMenuReload = reinterpret_cast<RequestMenuReloadFunc>(kmRuntimeAddr(0x80542210));
+kmRuntimeUse(0x80830c64);
 typedef void (*PrepareDriverOnKartAnmsFunc)(MenuDriverModelMgr* mgr, u32 hud);
-static PrepareDriverOnKartAnmsFunc const RealPrepareDriverOnKartAnms = reinterpret_cast<PrepareDriverOnKartAnmsFunc>(0x80830c64);
+static PrepareDriverOnKartAnmsFunc const RealPrepareDriverOnKartAnms = reinterpret_cast<PrepareDriverOnKartAnmsFunc>(kmRuntimeAddr(0x80830c64));
 
 static MenuCharManager* MenuManagerForHud(u8 hud) {
     ArchiveMgr* mgr = ArchiveMgr::sInstance;
@@ -458,6 +484,17 @@ kmCall(0x805411b8, MenuArchiveLoadHook);
 kmCall(0x80541FB8, MenuArchiveLoadHook);
 //sync variant loader's load call (same register convention)
 kmCall(0x80542198, MenuArchiveLoadHook);
+
+// DEBUG: log every MenuKartModel::Load call in the inner loop to identify the corrupt vehicle
+typedef void (*KartModelLoadFunc)(MenuKartModel* self, u8 playerId, CharacterId characterId, KartId kartId, EGG::Heap* heap, u16 width, u16 height);
+kmRuntimeUse(0x80831FC4);
+static KartModelLoadFunc const RealKartModelLoad = reinterpret_cast<KartModelLoadFunc>(kmRuntimeAddr(0x80831FC4));
+
+static void DebugKartModelLoad(MenuKartModel* self, u8 playerId, CharacterId characterId, KartId kartId, EGG::Heap* heap, u16 width, u16 height) {
+    OS::Report("Pulsar DEBUG: LoadKartModel player=%d char=%d kart=%d\n", playerId, (u32)characterId, (u32)kartId);
+    RealKartModelLoad(self, playerId, characterId, kartId, heap, width, height);
+}
+kmCall(0x80832E80, DebugKartModelLoad);
 
 //re-shows the driver on the kart after a reload's rebuild; visibility-only off a style page
 static void RestoreDriverAfterRebuild(u8 hud) {
