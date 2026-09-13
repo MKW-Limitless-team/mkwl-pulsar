@@ -16,7 +16,6 @@
 #include <CustomCharacters/CustomCharacters.hpp>
 #include <PulsarSystem.hpp>
 #include <IO/LooseArchiveOverrides.hpp>
-#include <MarioKartWii/Audio/AudioManager.hpp>
 #include <MarioKartWii/System/Identifiers.hpp>
 #include <core/RK/RKSystem.hpp>
 #include <core/nw4r/snd.hpp>
@@ -24,12 +23,11 @@
 #include <core/rvl/dvd/dvd.hpp>
 #include <core/rvl/os/OS.hpp>
 #include <include/c_stdio.h>
+#include <runtimeWrite.hpp>
 
 namespace Pulsar {
 namespace Sound {
 using namespace nw4r;
-
-static bool IsSW2RRLoaded() { return false; } //SW2RR mod not ported; this path stays inert
 
 namespace {
 typedef void *(*LoadFileFn)(snd::detail::SoundArchiveLoader *loader, snd::SoundArchive::FileId fileId,
@@ -72,14 +70,22 @@ struct ResolvedBRSARTarget {
     u8 padding[3];
 };
 
-static LoadFileFn sOriginalLoadFile = reinterpret_cast<LoadFileFn>(0x800a0180);
-static LoadWaveDataFileFn sOriginalLoadWaveDataFile = reinterpret_cast<LoadWaveDataFileFn>(0x800a0420);
-static LoadGroupFn sOriginalLoadGroup = reinterpret_cast<LoadGroupFn>(0x8009fa10);
-static OpenFileStreamFn sOriginalOpenFileStream = reinterpret_cast<OpenFileStreamFn>(0x8009e010);
-static ReadFileInfoFn sReadFileInfo = reinterpret_cast<ReadFileInfoFn>(0x8009dff0);
-static ReadFilePosFn sReadFilePos = reinterpret_cast<ReadFilePosFn>(0x8009e000);
-static ReadGroupInfoFn sReadGroupInfo = reinterpret_cast<ReadGroupInfoFn>(0x8009dfc0);
-static ReadGroupItemInfoFn sReadGroupItemInfo = reinterpret_cast<ReadGroupItemInfoFn>(0x8009dfd0);
+kmRuntimeUse(0x800a0180);
+kmRuntimeUse(0x800a0420);
+kmRuntimeUse(0x8009fa10);
+kmRuntimeUse(0x8009e010);
+kmRuntimeUse(0x8009dff0);
+kmRuntimeUse(0x8009e000);
+kmRuntimeUse(0x8009dfc0);
+kmRuntimeUse(0x8009dfd0);
+static LoadFileFn sOriginalLoadFile = reinterpret_cast<LoadFileFn>(kmRuntimeAddr(0x800a0180));
+static LoadWaveDataFileFn sOriginalLoadWaveDataFile = reinterpret_cast<LoadWaveDataFileFn>(kmRuntimeAddr(0x800a0420));
+static LoadGroupFn sOriginalLoadGroup = reinterpret_cast<LoadGroupFn>(kmRuntimeAddr(0x8009fa10));
+static OpenFileStreamFn sOriginalOpenFileStream = reinterpret_cast<OpenFileStreamFn>(kmRuntimeAddr(0x8009e010));
+static ReadFileInfoFn sReadFileInfo = reinterpret_cast<ReadFileInfoFn>(kmRuntimeAddr(0x8009dff0));
+static ReadFilePosFn sReadFilePos = reinterpret_cast<ReadFilePosFn>(kmRuntimeAddr(0x8009e000));
+static ReadGroupInfoFn sReadGroupInfo = reinterpret_cast<ReadGroupInfoFn>(kmRuntimeAddr(0x8009dfc0));
+static ReadGroupItemInfoFn sReadGroupItemInfo = reinterpret_cast<ReadGroupItemInfoFn>(kmRuntimeAddr(0x8009dfd0));
 static const void *sPatchedFileAddresses[1024] = {};
 static const void *sPatchedWaveAddresses[1024] = {};
 static void *sExternalFileBuffers[1024] = {};
@@ -292,7 +298,7 @@ static void ResetLooseBRSARExternalBuffers() {
 }
 
 static void *AllocAudioHeapOverrideBuffer(u32 allocSize) {
-    EGG::ExpAudioMgr *audioMgr = Audio::Manager::sInstance;
+    EGG::ExpAudioMgr *audioMgr = RKSystem::mInstance.audioManager;
     if (audioMgr == nullptr) return nullptr;
     return audioMgr->EGG::SoundHeapMgr::heap.Alloc(allocSize);
 }
@@ -734,65 +740,6 @@ static void PatchLoadedGroupItemWithLooseCustomSoundEffect(const snd::SoundArchi
     DVD::Close(&info);
 }
 
-static void PatchLoadedRaceGroupItemWithSW2RRBank(const snd::SoundArchive &archive, snd::SoundArchive::GroupId groupId, snd::SoundMemoryAllocatable *allocater, u32 itemCount, const snd::SoundArchive::GroupItemInfo &item, u32 groupSize, u32 waveDataSize, void *groupData, void *waveData) {
-    DVD::FileInfo info;
-    const char revokart[] = "/patches/revo_kart.brsar";
-    if (groupId != BRSAR_GROUP_RACE || !IsSW2RRLoaded() || groupData == nullptr || item.size < 4 || DVD::Open(revokart, &info)) return;
-
-    const u8 *itemData = static_cast<const u8 *>(groupData) + item.offset;
-    if (memcmp(itemData, "RWSD", 4) != 0) return;
-
-    const char path[] = "/sound/strm/RRGRP_RACE.brwsd";
-    if (!DVD::Open(path, &info)) return;
-
-    LooseVoiceLayout layout;
-    if (!ReadLooseVoiceLayout(info, "RWSD", layout)) {
-        DVD::Close(&info);
-        return;
-    }
-
-    u32 fileCapacity = 0;
-    const bool canPatchFileInGroup =
-        TryGetGroupItemSlotCapacity(archive, groupId, itemCount, item, false, groupSize, fileCapacity) &&
-        fileCapacity >= layout.fileSize;
-
-    if (canPatchFileInGroup) {
-        u8 *groupDest = static_cast<u8 *>(groupData) + item.offset;
-        if (!ReadOpenedDVDFileRange(info, groupDest, layout.fileSize, 0)) {
-            DVD::Close(&info);
-            return;
-        }
-
-        if (layout.fileSize < item.size) memset(groupDest + layout.fileSize, 0, item.size - layout.fileSize);
-        OS::DCStoreRange(groupDest, item.size);
-        if (item.fileId < 1024) sPatchedFileAddresses[item.fileId] = groupDest;
-    } else {
-        PreloadLooseCustomVoiceBufferWithAllocater(allocater, item.fileId, false, info, path, 0, layout.fileSize);
-    }
-
-    if (layout.waveSize > 0) {
-        u32 waveCapacity = 0;
-        const bool canPatchWaveInGroup =
-            waveData != nullptr && item.waveDataSize != 0 &&
-            TryGetGroupItemSlotCapacity(archive, groupId, itemCount, item, true, waveDataSize, waveCapacity) &&
-            waveCapacity >= layout.waveSize;
-
-        if (canPatchWaveInGroup) {
-            u8 *waveDest = static_cast<u8 *>(waveData) + item.waveDataOffset;
-            if (ReadOpenedDVDFileRange(info, waveDest, layout.waveSize, layout.waveOffset)) {
-                if (layout.waveSize < item.waveDataSize) memset(waveDest + layout.waveSize, 0, item.waveDataSize - layout.waveSize);
-                OS::DCStoreRange(waveDest, item.waveDataSize);
-                if (item.fileId < 1024) sPatchedWaveAddresses[item.fileId] = waveDest;
-            }
-        } else {
-            PreloadLooseCustomVoiceBufferWithAllocater(allocater, item.fileId, true, info, path, layout.waveOffset,
-                                                       layout.waveSize);
-        }
-    }
-
-    DVD::Close(&info);
-}
-
 static void PatchLoadedGroupItemWithLooseCustomVoice(const snd::SoundArchive &archive, snd::SoundArchive::GroupId groupId,
                                                      snd::SoundMemoryAllocatable *allocater, u32 itemCount,
                                                      const snd::SoundArchive::GroupItemInfo &item, u32 groupSize,
@@ -1033,8 +980,6 @@ static void PatchLoadedGroupWithLooseBRSAROverrides(const snd::SoundArchive &arc
 
         PatchLoadedGroupItemWithLooseCustomSoundEffect(archive, groupId, allocater, groupInfo.itemCount, item, groupInfo.size,
                                                        groupData);
-        PatchLoadedRaceGroupItemWithSW2RRBank(archive, groupId, allocater, groupInfo.itemCount, item, groupInfo.size,
-                                              groupInfo.waveDataSize, groupData, waveData);
         PatchLoadedGroupItemWithLooseCustomVoice(archive, groupId, allocater, groupInfo.itemCount, item, groupInfo.size,
                                                  groupInfo.waveDataSize, groupData, waveData);
     }

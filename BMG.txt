@@ -376,14 +376,14 @@
   872e  = White
   872f  = Yellow
 
-  8800  = \u{f041}\u{f034}
-  8801  = \u{f043}\u{f030}
-  8802  = \u{f059}\u{f05a}
-  8803  = \u{f05b}\u{f05c}
+  8A00  = \u{f041}\u{f034}
+  8A01  = \u{f043}\u{f030}
+  8A02  = \u{f059}\u{f05a}
+  8A03  = \u{f05b}\u{f05c}
 
   2935  = Base Style
   2936  = Lightweight Style
-  2937  = Standard Style
+  2937  = Regular Style
   2938  = Running Style
   2939  = Base Style
   293a  = Hyper Style
@@ -392,7 +392,7 @@
   293d  = Base Style
   293e  = Heavyweight Style
   293f  = Inside Style
-  2940  = Standard Style
+  2940  = Regular Style
   2941  = Base Style
   2942  = Speed Style
   2943  = Hyper Style
@@ -402,7 +402,7 @@
   2947  = Balanced Style
   2948  = Lightweight Style
   2949  = Base Style
-  294a  = Standard Style
+  294a  = Regular Style
   294b  = Nuanced Style
   294c  = Hybrid Style
   294d  = Base Style
@@ -426,15 +426,15 @@
   295f  = Swing Style
   2960  = Turbo Style
   2961  = Base Style
-  2962  = Standard Style
+  2962  = Regular Style
   2963  = Handling Style
   2964  = Classic Style
   2965  = Base Style
-  2966  = Standard Style
+  2966  = Regular Style
   2967  = Nuanced Style
   2968  = Speedster Style
   2969  = Base Style
-  296a  = Standard Style
+  296a  = Regular Style
   296b  = Speedster Style
   296c  = Inside Style
   296d  = Base Style

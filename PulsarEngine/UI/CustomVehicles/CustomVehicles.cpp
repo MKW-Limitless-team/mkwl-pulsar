@@ -494,7 +494,7 @@ static void DebugKartModelLoad(MenuKartModel* self, u8 playerId, CharacterId cha
     OS::Report("Pulsar DEBUG: LoadKartModel player=%d char=%d kart=%d\n", playerId, (u32)characterId, (u32)kartId);
     RealKartModelLoad(self, playerId, characterId, kartId, heap, width, height);
 }
-kmCall(0x80832E80, DebugKartModelLoad);
+// kmCall(0x80832E80, DebugKartModelLoad);
 
 //re-shows the driver on the kart after a reload's rebuild; visibility-only off a style page
 static void RestoreDriverAfterRebuild(u8 hud) {
