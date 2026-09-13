@@ -37,10 +37,8 @@ namespace Pulsar {
 namespace IOOverrides {
 
 namespace {
-// `/patches` supports whole-file redirects, tagged archive-member overrides, and modding archives.
+// `/My Stuff 1/2/3` supports whole-file redirects, tagged archive-member overrides, and modding archives.
 // Tagged files use `member.ext.ArchiveTag`; bundled files use `ModName.ArchiveTag.szs` U8 archives.
-const char kModsRoot[] = "/patches";
-const char kModsRootPrefix[] = "/patches/";
 const u32 kMaxOverridesTotal = 4096;
 const u32 kBRSAROverrideSlotCount = 1024;
 const u32 kOverrideMaxGrowthOnSourceHeap = 0x100000;
@@ -198,22 +196,37 @@ static bool sOverrideIndicesAttempted = false;
 static bool sHasWholeFileOverrides = false;
 static bool sModsRootChecked = false;
 static bool sModsRootPresent = false;
+static bool sModsRootFromDVD = false;
 static char sModsRootPath[OVERRIDE_MAX_PATH] = "/patches";
 static bool sOverrideCacheStateInitialized = false;
-static bool sCachedLooseOverridesEnabled = false;
+static int sCachedLooseOverridesEnabled = 0;
 static char sCachedModFolder[OVERRIDE_MAX_PATH] = "";
 static char sLastUIArchiveBase[32] = "";
 static LooseOverrideScratch sLooseOverrideScratch = {};
 
-static bool AreLooseArchiveOverridesEnabled() {
+static int AreLooseArchiveOverridesEnabled() {
     if (!Settings::Mgr::IsCreated()) {
-        // Settings not initialized yet, assume disabled to avoid unsafe behavior.
-        return false;
+        return 0;
     }
-    bool enabled = Settings::Mgr::Get().GetSettingValue(Pulsar::Settings::SETTINGSTYPE_MENU, SETTINGMENU_RADIO_MYSTUFF) !=
-            MENUSETTING_MYSTUFF_OFF;
-    OS::Report("[Pulsar] AreLooseArchiveOverridesEnabled: %d\n", enabled);
-    return enabled;
+    return Settings::Mgr::Get().GetSettingValue(Pulsar::Settings::SETTINGSTYPE_MENU, SETTINGMENU_RADIO_MYSTUFF);
+}
+
+static void GetLooseOverrideFolderPath(char *outPath, u32 outSize) {
+    int setting = AreLooseArchiveOverridesEnabled();
+    switch (setting) {
+        case MENUSETTING_MYSTUFF_1:
+            snprintf(outPath, outSize, "%s", "/My Stuff 1");
+            break;
+        case MENUSETTING_MYSTUFF_2:
+            snprintf(outPath, outSize, "%s", "/My Stuff 2");
+            break;
+        case MENUSETTING_MYSTUFF_3:
+            snprintf(outPath, outSize, "%s", "/My Stuff 3");
+            break;
+        default:
+            outPath[0] = '\0';
+            break;
+    }
 }
 
 static bool EndsWithIgnoreCase(const char *str, const char *suffix) {
@@ -412,7 +425,7 @@ static const char *GetRelativePath(u32 sourcePathOffset) {
 static bool BuildStoredOverridePath(u32 sourcePathOffset, char *outPath, u32 outSize) {
     const char *relativePath = GetRelativePath(sourcePathOffset);
     if (relativePath == nullptr) return false;
-    return BuildOverridePathWithRoot(kModsRoot, relativePath, nullptr, outPath, outSize);
+    return BuildOverridePathWithRoot(sModsRootPath, relativePath, nullptr, outPath, outSize);
 }
 
 static bool DecodeStoredOverrideRelativePath(u32 sourcePathOffset, char *decodedPath, u32 decodedSize) {
@@ -1109,7 +1122,12 @@ static void BuildArchiveFileSlotCapacities(const U8Node *nodes, u32 nodeCount, u
 static void ResetModsRootCache() {
     sModsRootChecked = false;
     sModsRootPresent = false;
-    SetModsRootPath(kModsRoot);
+    char defaultPath[OVERRIDE_MAX_PATH];
+    GetLooseOverrideFolderPath(defaultPath, sizeof(defaultPath));
+    if (defaultPath[0] == '\0') {
+        snprintf(defaultPath, sizeof(defaultPath), "%s", "/patches");
+    }
+    SetModsRootPath(defaultPath);
 }
 
 static void InvalidateOverrideIndices() {
@@ -1133,13 +1151,13 @@ static void GetCurrentModFolder(char *outPath, u32 outSize) {
 static void RefreshOverrideCacheState() {
     char modFolder[OVERRIDE_MAX_PATH];
     GetCurrentModFolder(modFolder, sizeof(modFolder));
-    const bool looseOverridesEnabled = AreLooseArchiveOverridesEnabled();
+    const int looseOverridesEnabled = AreLooseArchiveOverridesEnabled();
 
     if (!sOverrideCacheStateInitialized) {
         CopyPath(sCachedModFolder, sizeof(sCachedModFolder), modFolder);
         sCachedLooseOverridesEnabled = looseOverridesEnabled;
         sOverrideCacheStateInitialized = true;
-        OS::Report("[Pulsar] RefreshOverrideCacheState: initialized modFolder='%s', enabled=%d\n", modFolder, looseOverridesEnabled);
+        OS::Report("[Pulsar] RefreshOverrideCacheState: initialized modFolder='%s', setting=%d\n", modFolder, looseOverridesEnabled);
         return;
     }
 
@@ -1147,7 +1165,7 @@ static void RefreshOverrideCacheState() {
         InvalidateOverrideIndices();
         CopyPath(sCachedModFolder, sizeof(sCachedModFolder), modFolder);
         sCachedLooseOverridesEnabled = looseOverridesEnabled;
-        OS::Report("[Pulsar] RefreshOverrideCacheState: updated modFolder='%s', enabled=%d\n", modFolder, looseOverridesEnabled);
+        OS::Report("[Pulsar] RefreshOverrideCacheState: updated modFolder='%s', setting=%d\n", modFolder, looseOverridesEnabled);
     }
 }
 
@@ -1188,51 +1206,33 @@ static EGG::Heap *GetPersistentOverrideHeap(u32 requiredSize) {
 
 static bool ModsRootExists();
 static bool FindModsDirInFST(u32 &outIndex, u32 &outEnd);
-static bool ShouldProbeSDModsPath() {
-    IO *io = IO::sInstance;
-    if (io == nullptr) {
-        OS::Report("[Pulsar] ShouldProbeSDModsPath: io is null\n");
-        return false;
-    }
-    // Hardware SD can use the active IO backend directly; Dolphin channel mode needs an explicit SD probe.
-    if (io->type == IOType_SD) return true;
-    OS::Report("[Pulsar] ShouldProbeSDModsPath: io->type=%u, returning false\n", io->type);
-    return false;
-}
 
 static bool GetSDModsRootPath(char *outPath, u32 outSize) {
     if (!HasBuffer(outPath, outSize)) return false;
-
-    const System *system = System::sInstance;
-    if (system == nullptr) return false;
-
-    const char *modFolder = system->GetModFolder();
-    // No mod folder means there is no external loose-override root to resolve.
-    if (IsEmpty(modFolder)) return false;
-
-    const int written = snprintf(outPath, outSize, "%s/Patches", modFolder);
-    if (written <= 0 || static_cast<u32>(written) >= outSize) return false;
-    return true;
+    GetLooseOverrideFolderPath(outPath, outSize);
+    return outPath[0] != '\0';
 }
 
 static bool ModsRootExistsOnSD() {
     IO *io = IO::sInstance;
     if (io == nullptr) return false;
-    if (!ShouldProbeSDModsPath()) return false;
+    if (io->type != IOType_SD && io->type != IOType_DOLPHIN) return false;
 
     char modsPath[OVERRIDE_MAX_PATH];
     if (!GetSDModsRootPath(modsPath, sizeof(modsPath))) return false;
-    bool exists = false;
+
     if (io->type == IOType_SD) {
-        exists = io->FolderExists(modsPath);
-    } else {
-        System *system = System::sInstance;
-        if (system == nullptr) return false;
-        // Dolphin channel mode is not backed by the main IO object, so probe through a stack SDIO instance.
-        SDIO sdIo(IOType_SD, system->heap, system->taskThread);
-        exists = sdIo.FolderExists(modsPath);
+        return io->FolderExists(modsPath);
     }
-    OS::Report("[Pulsar] ModsRootExistsOnSD: path='%s', exists=%d\n", modsPath, exists);
+
+    // Dolphin: use ISFS directly to avoid SDIO crashing on the invalid SD driver vtable.
+    u32 count = 0;
+    s32 result = ISFS::ReadDir(modsPath, nullptr, &count);
+    bool exists = result >= 0;
+    if (exists) {
+        SetModsRootPath(modsPath);
+    }
+    OS::Report("[Pulsar] ModsRootExistsOnSD: path='%s', exists=%d (ISFS::ReadDir=%d)\n", modsPath, exists, result);
     return exists;
 }
 
@@ -1244,7 +1244,6 @@ static bool ResolveFSTDirByPath(const char *path, u32 entryCount, u32 &outIndex,
         return false;
     }
     const FSTEntry *entries = static_cast<const FSTEntry *>(OS::BootInfo::mInstance.FSTLocation);
-    // The DVD scan walks a directory range directly, so `/patches` must resolve to a directory entry.
     if (!FSTEntryIsDir(entries[entryNum])) {
         return false;
     }
@@ -1331,17 +1330,41 @@ static bool BuildOverridePathWithRoot(const char *root, const char *name, const 
 static bool ModsRootExists() {
     if (sModsRootChecked) return sModsRootPresent;
 
-    // Probe once; DVD uses `/patches`, SD/Dolphin can resolve to the mod folder.
     sModsRootChecked = true;
-    SetModsRootPath(kModsRoot);
-    u32 modsIndex = 0;
-    u32 modsEnd = 0;
-    sModsRootPresent = FindModsDirInFST(modsIndex, modsEnd);
-    if (!sModsRootPresent) {
-        // Disc FST lookup is preferred; SD probing is only the fallback path.
-        sModsRootPresent = ModsRootExistsOnSD();
+
+    int setting = AreLooseArchiveOverridesEnabled();
+    if (setting == MENUSETTING_MYSTUFF_OFF) {
+        sModsRootPresent = false;
+        sModsRootPath[0] = '\0';
+        sModsRootFromDVD = false;
+        OS::Report("[Pulsar] ModsRootExists: setting OFF, no mods root\n");
+        return false;
     }
-    OS::Report("[Pulsar] ModsRootExists: sModsRootPresent=%d, sModsRootPath='%s'\n", sModsRootPresent, sModsRootPath);
+
+    char modsPath[OVERRIDE_MAX_PATH];
+    GetLooseOverrideFolderPath(modsPath, sizeof(modsPath));
+    if (modsPath[0] == '\0') {
+        sModsRootPresent = false;
+        return false;
+    }
+
+    // Check in DVD FST (virtual disc via Riivolution).
+    const FSTEntry *fstEntries = static_cast<const FSTEntry *>(OS::BootInfo::mInstance.FSTLocation);
+    const u32 entryCount = fstEntries ? fstEntries[0].size : 0;
+    u32 tmpIdx = 0, tmpEnd = 0;
+    if (entryCount > 0 && ResolveFSTDirByPath(modsPath, entryCount, tmpIdx, tmpEnd)) {
+        sModsRootPresent = true;
+        sModsRootFromDVD = true;
+        SetModsRootPath(modsPath);
+    } else {
+        // Check SD/ISFS.
+        sModsRootPresent = ModsRootExistsOnSD();
+        sModsRootFromDVD = false;
+        if (sModsRootPresent) {
+            SetModsRootPath(modsPath);
+        }
+    }
+    OS::Report("[Pulsar] ModsRootExists: sModsRootPresent=%d, fromDVD=%d, sModsRootPath='%s'\n", sModsRootPresent, sModsRootFromDVD, sModsRootPath);
     return sModsRootPresent;
 }
 
@@ -1764,7 +1787,7 @@ static bool ScanModdingArchiveFile(ScanBuildState &state, u32 maxTaggedCount, u3
     if (!TryParseModdingArchiveName(relativePath, archiveTagLower, sizeof(archiveTagLower))) return false;
 
     char fullPath[OVERRIDE_MAX_PATH];
-    if (!BuildOverridePathWithRoot(kModsRoot, relativePath, nullptr, fullPath, sizeof(fullPath))) return false;
+    if (!BuildOverridePathWithRoot(sModsRootPath, relativePath, nullptr, fullPath, sizeof(fullPath))) return false;
 
     EGG::Heap *heap = GetOverridesHeap();
     if (heap == nullptr) heap = RKSystem::mInstance.EGGRootMEM2;
@@ -1937,7 +1960,7 @@ static bool FindModsDirInFST(u32 &outIndex, u32 &outEnd) {
     const FSTEntry *entries = static_cast<const FSTEntry *>(OS::BootInfo::mInstance.FSTLocation);
     const u32 entryCount = entries[0].size;
     if (entryCount == 0) return false;
-    return ResolveFSTDirByPath(kModsRoot, entryCount, outIndex, outEnd);
+    return ResolveFSTDirByPath(sModsRootPath, entryCount, outIndex, outEnd);
 }
 
 static void ScanModsDirDVD(ScanBuildState &state, u32 maxTaggedCount, u32 maxWholeFileCount, u32 maxBRSARCount) {
@@ -1945,7 +1968,7 @@ static void ScanModsDirDVD(ScanBuildState &state, u32 maxTaggedCount, u32 maxWho
     u32 modsEnd = 0;
     if (!FindModsDirInFST(modsIndex, modsEnd)) return;
 
-    SetModsRootPath(kModsRoot);
+    SetModsRootPath(sModsRootPath);
     sModsRootPresent = true;
 
     const FSTEntry *fst = static_cast<const FSTEntry *>(OS::BootInfo::mInstance.FSTLocation);
@@ -2065,37 +2088,110 @@ static void ScanModsDirFromSDIO(SDIO &io, ScanBuildState &state, u32 maxTaggedCo
     io.CloseFolderStream();
 }
 
+static void ScanModsDirFromModsFolder(ScanBuildState &state, u32 maxTaggedCount, u32 maxWholeFileCount,
+                                           u32 maxBRSARCount) {
+    if (sModsRootPath[0] == '\0') return;
+
+    // Find the mods folder in the DVD FST (virtual disc via /dev/dolphin).
+    s32 entryNum = DVD::ConvertPathToEntryNum(sModsRootPath);
+    if (entryNum < 0) {
+        OS::Report("[Pulsar] ScanModsDirFromModsFolder: '%s' not found in DVD FST\n", sModsRootPath);
+        return;
+    }
+
+    const FSTEntry *entries = static_cast<const FSTEntry *>(OS::BootInfo::mInstance.FSTLocation);
+    const u32 entryCount = entries[0].size;
+    if (static_cast<u32>(entryNum) >= entryCount || !FSTEntryIsDir(entries[entryNum])) {
+        OS::Report("[Pulsar] ScanModsDirFromModsFolder: '%s' not a directory\n", sModsRootPath);
+        return;
+    }
+
+    u32 modsEnd = entries[entryNum].size;
+    sModsRootPresent = true;
+
+    const char *stringTable = reinterpret_cast<const char *>(entries) + (entryCount * sizeof(FSTEntry));
+
+    struct DirStackEntry {
+        u32 endIndex;
+        u32 prevLen;
+    };
+
+    DirStackEntry stack[32];
+    u32 depth = 0;
+    char relPath[OVERRIDE_MAX_PATH];
+    u32 relLen = 0;
+    relPath[0] = '\0';
+
+    for (u32 i = entryNum + 1; i < modsEnd &&
+                                !IsScanBuildComplete(state, maxTaggedCount, maxWholeFileCount, maxBRSARCount);
+         ++i) {
+        while (depth > 0 && i >= stack[depth - 1].endIndex) {
+            relLen = stack[depth - 1].prevLen;
+            relPath[relLen] = '\0';
+            --depth;
+        }
+
+        const FSTEntry &entry = entries[i];
+        const char *name = stringTable + FSTNameOffset(entry);
+        if (IsEmpty(name)) continue;
+
+        if (FSTEntryIsDir(entry)) {
+            if (depth >= 32) continue;
+            const u32 prevLen = relLen;
+            if (!AppendPath(relPath, sizeof(relPath), relLen, name)) {
+                relLen = prevLen;
+                relPath[relLen] = '\0';
+                continue;
+            }
+            stack[depth].endIndex = entry.size;
+            stack[depth].prevLen = prevLen;
+            ++depth;
+            continue;
+        }
+
+        char relativePath[OVERRIDE_MAX_PATH];
+        int relWritten = 0;
+        if (relLen > 0) {
+            relWritten = snprintf(relativePath, sizeof(relativePath), "%s/%s", relPath, name);
+        } else {
+            relWritten = snprintf(relativePath, sizeof(relativePath), "%s", name);
+        }
+        if (relWritten <= 0 || static_cast<u32>(relWritten) >= sizeof(relativePath)) continue;
+
+        if (ScanModdingArchiveFile(state, maxTaggedCount, maxBRSARCount, relativePath, static_cast<s32>(i), entry.size)) {
+            continue;
+        }
+        AddScannedEntry(state, maxTaggedCount, maxWholeFileCount, maxBRSARCount, relativePath, static_cast<s32>(i),
+                        entry.size);
+    }
+
+    OS::Report("[Pulsar] ScanModsDirFromModsFolder: scanned '%s' complete\n", sModsRootPath);
+}
+
 static void ScanModsDirSD(ScanBuildState &state, u32 maxTaggedCount, u32 maxWholeFileCount, u32 maxBRSARCount) {
     IO *io = IO::sInstance;
     if (io == nullptr) return;
-    if (!ShouldProbeSDModsPath()) return;
+    if (io->type != IOType_SD && io->type != IOType_DOLPHIN) return;
 
     if (io->type == IOType_SD) {
         ScanModsDirFromSDIO(*static_cast<SDIO *>(io), state, maxTaggedCount, maxWholeFileCount, maxBRSARCount);
         return;
     }
 
-    System *system = System::sInstance;
-    if (system == nullptr) return;
-
-    SDIO sdIo(IOType_SD, system->heap, system->taskThread);
-    ScanModsDirFromSDIO(sdIo, state, maxTaggedCount, maxWholeFileCount, maxBRSARCount);
+    // Dolphin: use DVD FST to scan the virtual disc's mods folder.
+    ScanModsDirFromModsFolder(state, maxTaggedCount, maxWholeFileCount, maxBRSARCount);
 }
 
 static void ScanModsDir(ScanBuildState &state, u32 maxTaggedCount, u32 maxWholeFileCount, u32 maxBRSARCount) {
     if (!ModsRootExists()) return;
 
-    IO *io = IO::sInstance;
-    if (io != nullptr && ShouldProbeSDModsPath()) {
-        OS::Report("[Pulsar] ScanModsDir: scanning SD path\n");
-        // Prefer SD when available so loose files can change without rebuilding the disc image.
+    if (sModsRootFromDVD) {
+        OS::Report("[Pulsar] ScanModsDir: scanning DVD FST path '%s'\n", sModsRootPath);
+        ScanModsDirFromModsFolder(state, maxTaggedCount, maxWholeFileCount, maxBRSARCount);
+    } else {
+        OS::Report("[Pulsar] ScanModsDir: scanning SD/ISFS path '%s'\n", sModsRootPath);
         ScanModsDirSD(state, maxTaggedCount, maxWholeFileCount, maxBRSARCount);
-        return;
     }
-
-    OS::Report("[Pulsar] ScanModsDir: falling back to DVD FST\n");
-    // Otherwise walk the baked-in `/patches` subtree from the DVD FST.
-    ScanModsDirDVD(state, maxTaggedCount, maxWholeFileCount, maxBRSARCount);
 }
 
 static s32 CompareWholeFileEntries(const WholeFileOverrideEntry &lhs, const WholeFileOverrideEntry &rhs) {
@@ -2499,7 +2595,6 @@ static void CompactOverrideDatabase(OverrideDatabase &database, u32 taggedCapaci
 }
 
 static void EnsureOverrideIndicesBuilt() {
-    OS::Report("[Pulsar] EnsureOverrideIndicesBuilt called\n");
     if (sOverrideIndicesAttempted) return;
 
     if (!ModsRootExists()) {
@@ -3355,13 +3450,9 @@ static bool RebuildArchiveWithStructuralOverrides(const char *archiveBaseLower, 
 
 bool IsModsPath(const char *path) {
     if (path == nullptr) return false;
-    if (strcmp(path, kModsRoot) == 0) return true;
-    if (StartsWith(path, kModsRootPrefix)) return true;
-
-    // Also treat the resolved SD root as internal to avoid recursive redirects.
-
     const u32 rootLen = strlen(sModsRootPath);
     if (rootLen == 0) return false;
+    if (strcmp(path, sModsRootPath) == 0) return true;
     if (strncmp(path, sModsRootPath, rootLen) != 0) return false;
     return path[rootLen] == '\0' || path[rootLen] == '/';
 }
