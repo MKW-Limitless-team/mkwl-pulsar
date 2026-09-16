@@ -116,7 +116,7 @@ void System::InitSettings(const u16* totalTrophyCount) const {
 }
 
 void System::UpdateContext() {
-    const RacedataSettings& racedataSettings = Racedata::sInstance->menusScenario.settings;
+    const RacedataSettings& racedataSettings = Racedata::sInstance->racesScenario.settings;
     this->ottVoteState = OTT::COMBO_NONE;
     const Settings::Mgr& settings = Settings::Mgr::Get();
     bool isCT = true;
