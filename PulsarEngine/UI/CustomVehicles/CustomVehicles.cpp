@@ -118,8 +118,13 @@ u8 StyleForPlayer(u8 playerId) {
             return cpuPlaystyles[playerId] & 3;
         }
     }
+    const RacedataSettings& raceSettings = Racedata::sInstance->racesScenario.settings;
+    const bool isOnlineRace = Racedata::sInstance != nullptr && (
+        raceSettings.gamemode == MODE_PUBLIC_VS || raceSettings.gamemode == MODE_PRIVATE_VS ||
+        raceSettings.gamemode == MODE_PUBLIC_BATTLE || raceSettings.gamemode == MODE_PRIVATE_BATTLE
+    );
     const RKNet::Controller* controller = RKNet::Controller::sInstance;
-    if(controller == nullptr) return playerId < 4 ? (playstyles[playerId] & 3) : 0; //offline: ids are local huds
+    if(!isOnlineRace || controller == nullptr) return playerId < 4 ? (playstyles[playerId] & 3) : 0; //offline or online with no controller
     const RKNet::ControllerSub& sub = controller->subs[controller->currentSub];
     const u8 rawAid = controller->aidsBelongingToPlayerIds[playerId];
     const u8 aid = rawAid & 0xF; //AI/offline seats hold 0xFF or garbage
