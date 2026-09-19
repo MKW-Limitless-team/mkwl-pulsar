@@ -1,6 +1,7 @@
 #include <kamek.hpp>
 #include <MarioKartWii/Race/RaceData.hpp>
 #include <MarioKartWii/Race/Raceinfo/Raceinfo.hpp>
+#include <PulsarSystem.hpp>
 
 namespace Pulsar {
     // Points Distribution Modifier [Gaberboo]
@@ -151,4 +152,10 @@ namespace Pulsar {
     }
     kmBranch(0x80533430, AntiLagLateStartOnline);
     kmPatchExitPoint(AntiLagLateStartOnline, 0x80533434);
+
+    // Fix OTT Item Drop [psq_lx]
+    u32 fixOTTItemDrop(bool isTT){
+        return System::sInstance->IsContext(PULSAR_MODE_OTT) || isTT;
+    }
+    kmBranch(0x80790e24, fixOTTItemDrop);
 }
