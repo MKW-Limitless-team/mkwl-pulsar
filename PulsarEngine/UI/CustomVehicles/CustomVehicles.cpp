@@ -452,6 +452,16 @@ static bool MenuPathCharacter(const char* path, u32& character) {
     return false;
 }
 
+kmRuntimeUse(0x80226AC8);
+typedef EGG::ExpHeap* (*ExpHeapCreateFunc)(int size, EGG::Heap* parent, u16 flags);
+static ExpHeapCreateFunc const RealExpHeapCreate = reinterpret_cast<ExpHeapCreateFunc>(kmRuntimeAddr(0x80226AC8));
+static EGG::ExpHeap* ExpHeapCreateHook(int size, EGG::Heap* parent, u16 flags) {
+    if (size == 0xc8000 || size == 0xe1000) {
+        size = 0x180000;
+    }
+    return RealExpHeapCreate(size, parent, flags);
+}
+
 //substitutes the styled archive path into menu allkart loads; anything else loads vanilla
 static void MenuArchiveLoadHook(void* archiveCountPtr, char* path, EGG::Heap* archiveHeap, EGG::Heap* fileHeap, u32 unused) {
     ArchiveMgr* mgr = ArchiveMgr::sInstance;
@@ -489,6 +499,8 @@ kmCall(0x805411b8, MenuArchiveLoadHook);
 kmCall(0x80541FB8, MenuArchiveLoadHook);
 //sync variant loader's load call (same register convention)
 kmCall(0x80542198, MenuArchiveLoadHook);
+kmCall(0x80542304, ExpHeapCreateHook);
+kmCall(0x8054233c, ExpHeapCreateHook);
 
 // DEBUG: log every MenuKartModel::Load call in the inner loop to identify the corrupt vehicle
 typedef void (*KartModelLoadFunc)(MenuKartModel* self, u8 playerId, CharacterId characterId, KartId kartId, EGG::Heap* heap, u16 width, u16 height);
