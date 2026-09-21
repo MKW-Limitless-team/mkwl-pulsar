@@ -117,6 +117,7 @@ void System::InitSettings(const u16* totalTrophyCount) const {
 
 void System::UpdateContext() {
     const RacedataSettings& racedataSettings = Racedata::sInstance->racesScenario.settings;
+    const RacedataSettings& menuSettings = Racedata::sInstance->menusScenario.settings;
     this->ottVoteState = OTT::COMBO_NONE;
     const Settings::Mgr& settings = Settings::Mgr::Get();
     bool isCT = true;
@@ -131,7 +132,11 @@ void System::UpdateContext() {
     Network::Mgr& netMgr = this->netMgr;
     const u32 sceneId = GameScene::GetCurrent()->id;
 
-    bool is200 = racedataSettings.engineClass == CC_100 && this->info.Has200cc();
+    // Offline: racesScenario may be uninitialised at scene enter, so use the menu's CC selection.
+    // Online: use the race scenario (actual host-decided / regional-merged CC).
+    const RacedataSettings& ccSource = (sceneId != SCENE_ID_GLOBE && controller->connectionState != RKNet::CONNECTIONSTATE_SHUTDOWN)
+        ? racedataSettings : menuSettings;
+    bool is200 = ccSource.engineClass == CC_100 && this->info.Has200cc();
     bool isLegacy200 = is200 && this->info.HasLegacy200ccMaxSpeed();
     bool isFeather = this->info.HasFeather();
     bool isUMTs = this->info.HasUMTs();
