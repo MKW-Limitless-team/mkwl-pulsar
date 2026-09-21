@@ -45,9 +45,9 @@ static char generatedPostfixes[36][STYLE_COUNT][16];
 //tri-state existence cache: 0 unknown, 1 missing, 2 exists; keyed kart/style/character
 static u8 styleExists[36][STYLE_COUNT][0x30];
 
-//kart select pages on which cycling is active
+//kart select pages on which cycling is active; battle is excluded
 static bool IsStylePageId(u32 id) {
-    return id == PAGE_KART_SELECT || id == PAGE_BATTLE_KART_SELECT || id == PAGE_MULTIPLAYER_KART_SELECT;
+    return id == PAGE_KART_SELECT || id == PAGE_MULTIPLAYER_KART_SELECT;
 }
 
 static bool IsStyleSelectActive(const SectionMgr& mgr) {
@@ -109,6 +109,9 @@ static bool VehicleStyleFileExists(u32 kart, u32 style, CharacterId character) {
 
 //playstyle (0-3) for a race player (0-11): ghost -> ghostPlaystyles, cpu -> cpuPlaystyles, local -> playstyles, remote -> remoteStyles
 u8 StyleForPlayer(u8 playerId) {
+    if(Racedata::sInstance == nullptr) return 0;
+    const GameMode gm = Racedata::sInstance->racesScenario.settings.gamemode;
+    if(gm == MODE_BATTLE || gm == MODE_PUBLIC_BATTLE || gm == MODE_PRIVATE_BATTLE) return 0;
     if(playerId < 12 && Racedata::sInstance != nullptr) {
         const RacedataPlayer& player = Racedata::sInstance->racesScenario.players[playerId];
         if(player.playerType == PLAYER_GHOST) {
@@ -169,6 +172,9 @@ void RandomiseCpuPlaystyles() {
 void RandomiseLocalPlaystyles() {
     SectionMgr* sectionMgr = SectionMgr::sInstance;
     if(sectionMgr == nullptr || sectionMgr->curSection == nullptr) { OS::Report("Pulsar DEBUG: RandomiseLocalPlaystyles: sectionMgr/section null\n"); return; }
+    const Racedata* racedata = Racedata::sInstance;
+    const GameMode gm = racedata != nullptr ? racedata->menusScenario.settings.gamemode : MODE_VS_RACE;
+    if(gm == MODE_BATTLE || gm == MODE_PUBLIC_BATTLE || gm == MODE_PRIVATE_BATTLE) return;
     SectionParams* sectionParams = sectionMgr->sectionParams;
     if(sectionParams == nullptr) { OS::Report("Pulsar DEBUG: RandomiseLocalPlaystyles: sectionParams null\n"); return; }
     const u32 count = sectionParams->localPlayerCount;

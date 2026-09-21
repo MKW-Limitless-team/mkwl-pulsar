@@ -2,6 +2,7 @@
 #include <UI/CustomVehicles/CustomVehicles.hpp>
 #include <MarioKartWii/UI/Ctrl/Menu/CtrlMenuMachineGraph.hpp>
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
+#include <MarioKartWii/Race/RaceData.hpp>
 #include <MarioKartWii/System/Identifiers.hpp>
 
 namespace Pulsar {
@@ -405,7 +406,10 @@ void GraphUpdateHook(CtrlMenuMachineGraph* graph, CharacterId character, KartId 
     if(!rangesComputed) ComputeRanges();
     if(!rangesComputed) return;
 
-    const u8 style = hud < 4 ? playstyles[hud] : 0;
+    const Racedata* racedata = Racedata::sInstance;
+    const GameMode gm = racedata != nullptr ? racedata->menusScenario.settings.gamemode : MODE_VS_RACE;
+    const bool isBattle = gm == MODE_BATTLE || gm == MODE_PUBLIC_BATTLE || gm == MODE_PRIVATE_BATTLE;
+    const u8 style = (hud < 4 && !isBattle) ? playstyles[hud] : 0;
 
     u8* abilities = *reinterpret_cast<u8**>(
         reinterpret_cast<u32>(graph) + 0x174);
