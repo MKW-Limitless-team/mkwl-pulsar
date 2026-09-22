@@ -33,6 +33,8 @@ namespace CustomVehicles {
 static u8 menuBoundStyle[4] = {0, 0, 0, 0};
 //set while a style-triggered archive reload is in flight
 static bool menuReloadOutstanding[4] = {false, false, false, false};
+//set once a reload successfully finishes so the row icons re-page the following frame
+static bool iconsRebindPending = false;
 
 //vanilla data tables
 extern "C" const char* VEHICLE_NAMES[36];
@@ -326,8 +328,8 @@ void ProcessStyleInput() {
         else if((pressed & nextButton) != 0) step = 1;
         else continue;
 
-        //don't change style again before the previous model reload has fully loaded
-        if(menuReloadOutstanding[hud]) continue;
+        //don't change style while a reload is in flight or its icon rebind hasn't settled yet
+        if(menuReloadOutstanding[hud] || iconsRebindPending) continue;
 
         //cycle through all styles; vehicles without a style file fall back to vanilla
         u32 style = playstyles[hud];
@@ -507,17 +509,11 @@ kmCall(0x80541FB8, MenuArchiveLoadHook);
 kmCall(0x80542198, MenuArchiveLoadHook);
 kmCall(0x80542304, ExpHeapCreateHook);
 kmCall(0x8054233c, ExpHeapCreateHook);
-
-// DEBUG: log every MenuKartModel::Load call in the inner loop to identify the corrupt vehicle
-typedef void (*KartModelLoadFunc)(MenuKartModel* self, u8 playerId, CharacterId characterId, KartId kartId, EGG::Heap* heap, u16 width, u16 height);
-kmRuntimeUse(0x80831FC4);
-static KartModelLoadFunc const RealKartModelLoad = reinterpret_cast<KartModelLoadFunc>(kmRuntimeAddr(0x80831FC4));
-
-static void DebugKartModelLoad(MenuKartModel* self, u8 playerId, CharacterId characterId, KartId kartId, EGG::Heap* heap, u16 width, u16 height) {
-    OS::Report("Pulsar DEBUG: LoadKartModel player=%d char=%d kart=%d\n", playerId, (u32)characterId, (u32)kartId);
-    RealKartModelLoad(self, playerId, characterId, kartId, heap, width, height);
-}
-// kmCall(0x80832E80, DebugKartModelLoad);
+kmRuntimeUse(0x80847810);
+kmRuntimeUse(0x808478F4);
+typedef void (*ButtonIconFunc)(UIControl*);
+static ButtonIconFunc const RealButtonInitSelf = reinterpret_cast<ButtonIconFunc>(kmRuntimeAddr(0x80847810));
+static ButtonIconFunc const RealButtonBindTexture = reinterpret_cast<ButtonIconFunc>(kmRuntimeAddr(0x808478F4));
 
 //re-shows the driver on the kart after a reload's rebuild; visibility-only off a style page
 static void RestoreDriverAfterRebuild(u8 hud) {
@@ -539,6 +535,31 @@ static void RestoreDriverAfterRebuild(u8 hud) {
     menuReloadOutstanding[hud] = false;
 }
 
+//re-links the vehicle-select row buttons to the regenerated icons after a style reload
+static void RebindVehicleSelectIcons() {
+    SectionMgr* mgr = SectionMgr::sInstance;
+    if(mgr == nullptr || mgr->curSection == nullptr) return;
+    Page* top = mgr->curSection->GetTopLayerPage();
+    if(top == nullptr || !IsStylePageId(top->pageId) || top->pageId == PAGE_BATTLE_KART_SELECT) return;
+    for(u8 col = 1; col <= 2; ++col) {
+        UIControl* column = top->controlGroup.GetControl(col);
+        if(column == nullptr) continue;
+        const ControlGroup& rows = column->childrenGroup;
+        for(u32 slot = 0; slot < rows.controlCount; ++slot) {
+            UIControl* row = rows.GetControl(slot);
+            if(row == nullptr) continue;
+            const ControlGroup& buttons = row->childrenGroup;
+            for(u32 b = 0; b < buttons.controlCount; ++b) {
+                UIControl* button = buttons.GetControl(b);
+                if(button == nullptr) continue;
+                //re-bind after the in-place reload so the row reflects the new style
+                RealButtonInitSelf(button);
+                RealButtonBindTexture(button);
+            }
+        }
+    }
+}
+
 //restores in the same frame as the rebuild, which ends with prepareDriverOnKartAnms
 static void PrepareDriverOnKartAnmsHook(MenuDriverModelMgr* mgr, u32 hud) {
     RealPrepareDriverOnKartAnms(mgr, hud);
@@ -558,6 +579,15 @@ void ProcessMenuRebinds() {
 
     //restore poll; runs before the page gate so a mid-reload page change still restores
     MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
+    //re-link the row icons once the regenerated models are locked (normal reloads complete in-frame)
+    if(iconsRebindPending && modelMgr != nullptr && modelMgr->kartModels != nullptr
+        && modelMgr->kartModels->players[0].isLocked) {
+        MenuCharManager* mm = MenuManagerForHud(0);
+        if(mm != nullptr && mm->state == 4) {
+            iconsRebindPending = false;
+            RebindVehicleSelectIcons();
+        }
+    }
     for(u8 hud = 0; hud < 4; ++hud) {
         if(!menuReloadOutstanding[hud]) continue;
         MenuCharManager* mm = MenuManagerForHud(hud);
@@ -570,6 +600,7 @@ void ProcessMenuRebinds() {
             }
             modelMgr->driverModels->players[hud].isVisible = true;
             menuReloadOutstanding[hud] = false;
+            iconsRebindPending = false;
             continue;
         }
         if(mm->state != 4 || !modelMgr->kartModels->players[hud].isLocked) continue;
@@ -627,6 +658,7 @@ void ProcessMenuRebinds() {
             menuReloadOutstanding[hud] = false;
         } else {
             menuBoundStyle[hud] = loadStyle;
+            iconsRebindPending = true;
         }
     }
 }
