@@ -511,9 +511,10 @@ kmCall(0x80542304, ExpHeapCreateHook);
 kmCall(0x8054233c, ExpHeapCreateHook);
 kmRuntimeUse(0x80847810);
 kmRuntimeUse(0x808478F4);
-typedef void (*ButtonIconFunc)(UIControl*);
-static ButtonIconFunc const RealButtonInitSelf = reinterpret_cast<ButtonIconFunc>(kmRuntimeAddr(0x80847810));
-static ButtonIconFunc const RealButtonBindTexture = reinterpret_cast<ButtonIconFunc>(kmRuntimeAddr(0x808478F4));
+typedef void (*ButtonInitFunc)(UIControl*);
+typedef u8 (*ButtonBindFunc)(UIControl*);
+static ButtonInitFunc const RealButtonInitSelf = reinterpret_cast<ButtonInitFunc>(kmRuntimeAddr(0x80847810));
+static ButtonBindFunc const RealButtonBindTexture = reinterpret_cast<ButtonBindFunc>(kmRuntimeAddr(0x808478F4));
 
 //re-shows the driver on the kart after a reload's rebuild; visibility-only off a style page
 static void RestoreDriverAfterRebuild(u8 hud) {
@@ -535,6 +536,20 @@ static void RestoreDriverAfterRebuild(u8 hud) {
     menuReloadOutstanding[hud] = false;
 }
 
+static bool IsVehicleIconButton(UIControl* ctrl) {
+    if(ctrl == nullptr || ctrl->isHidden) return false;
+    const char* name = ctrl->GetClassName();
+    if(name == nullptr) return false;
+    bool isButton = false;
+    for(const char* p = name; *p != '\0'; ++p) {
+        if(p[0] == 'B' && p[1] == 'u' && p[2] == 't' && p[3] == 't' && p[4] == 'o' && p[5] == 'n') { isButton = true; break; }
+    }
+    if(!isButton) return false;
+    LayoutUIControl* l = static_cast<LayoutUIControl*>(ctrl);
+    if(l->layout.GetPaneByName("hatena") == nullptr) return false;
+    return true;
+}
+
 //re-links the vehicle-select row buttons to the regenerated icons after a style reload
 static void RebindVehicleSelectIcons() {
     SectionMgr* mgr = SectionMgr::sInstance;
@@ -543,21 +558,46 @@ static void RebindVehicleSelectIcons() {
     if(top == nullptr || !IsStylePageId(top->pageId) || top->pageId == PAGE_BATTLE_KART_SELECT) return;
     for(u8 col = 1; col <= 2; ++col) {
         UIControl* column = top->controlGroup.GetControl(col);
-        if(column == nullptr) continue;
+        if(column == nullptr || column->isHidden) continue;
         const ControlGroup& rows = column->childrenGroup;
         for(u32 slot = 0; slot < rows.controlCount; ++slot) {
             UIControl* row = rows.GetControl(slot);
-            if(row == nullptr) continue;
+            if(row == nullptr || row->isHidden) continue;
             const ControlGroup& buttons = row->childrenGroup;
             for(u32 b = 0; b < buttons.controlCount; ++b) {
                 UIControl* button = buttons.GetControl(b);
-                if(button == nullptr) continue;
+                if(button == nullptr || !IsVehicleIconButton(button)) continue;
                 //re-bind after the in-place reload so the row reflects the new style
-                RealButtonInitSelf(button);
-                RealButtonBindTexture(button);
+                const u8 bound = RealButtonBindTexture(button);
+                //0 lets the game's OnUpdate re-bind the button once its icon has streamed in
+                *(reinterpret_cast<u8*>(button) + 0x25C) = bound;
             }
         }
     }
+}
+
+//true once every visible vehicle icon has a bind flag set (including updates the game applies itself)
+static bool VehicleSelectAllIconsBound() {
+    SectionMgr* mgr = SectionMgr::sInstance;
+    if(mgr == nullptr || mgr->curSection == nullptr) return false;
+    Page* top = mgr->curSection->GetTopLayerPage();
+    if(top == nullptr || !IsStylePageId(top->pageId) || top->pageId == PAGE_BATTLE_KART_SELECT) return false;
+    for(u8 col = 1; col <= 2; ++col) {
+        UIControl* column = top->controlGroup.GetControl(col);
+        if(column == nullptr || column->isHidden) continue;
+        const ControlGroup& rows = column->childrenGroup;
+        for(u32 slot = 0; slot < rows.controlCount; ++slot) {
+            UIControl* row = rows.GetControl(slot);
+            if(row == nullptr || row->isHidden) continue;
+            const ControlGroup& buttons = row->childrenGroup;
+            for(u32 b = 0; b < buttons.controlCount; ++b) {
+                UIControl* button = buttons.GetControl(b);
+                if(button == nullptr || !IsVehicleIconButton(button)) continue;
+                if(*(reinterpret_cast<u8*>(button) + 0x25C) == 0) return false;
+            }
+        }
+    }
+    return true;
 }
 
 //restores in the same frame as the rebuild, which ends with prepareDriverOnKartAnms
@@ -579,15 +619,19 @@ void ProcessMenuRebinds() {
 
     //restore poll; runs before the page gate so a mid-reload page change still restores
     MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
-    //re-link the row icons once the regenerated models are locked (normal reloads complete in-frame)
+    //re-link the row icons once the regenerated models are locked; keep gating input until every icon is in
+    static bool didRebind = false;
     if(iconsRebindPending && modelMgr != nullptr && modelMgr->kartModels != nullptr
         && modelMgr->kartModels->players[0].isLocked) {
         MenuCharManager* mm = MenuManagerForHud(0);
         if(mm != nullptr && mm->state == 4) {
-            iconsRebindPending = false;
-            RebindVehicleSelectIcons();
+            if(!didRebind) { RebindVehicleSelectIcons(); didRebind = true; }
+            if(VehicleSelectAllIconsBound()) { iconsRebindPending = false; didRebind = false; }
         }
+    } else if(!iconsRebindPending) {
+        didRebind = false;
     }
+    if(!iconsRebindPending && didRebind) didRebind = false;
     for(u8 hud = 0; hud < 4; ++hud) {
         if(!menuReloadOutstanding[hud]) continue;
         MenuCharManager* mm = MenuManagerForHud(hud);
@@ -639,6 +683,7 @@ void ProcessMenuRebinds() {
         const bool styled = style != 0 && MenuStyleFileExists(static_cast<u32>(mm->character), style);
         const u8 loadStyle = styled ? style : 0;
         if(loadStyle == menuBoundStyle[hud]) continue;
+        if(iconsRebindPending) continue;
         if(modelMgr == nullptr || modelMgr->driverModels == nullptr || modelMgr->kartModels == nullptr) continue;
         MenuDriverModel* liveDriver = modelMgr->driverModels->players[hud].playerModel;
         if(liveDriver == nullptr || liveDriver->model == nullptr) continue;
