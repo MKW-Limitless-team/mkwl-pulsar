@@ -12,6 +12,7 @@
 #include <Config.hpp>
 #include <SlotExpansion/CupsConfig.hpp>
 #include <core/egg/DVD/DvdRipper.hpp>
+#include <MarioKartWii/RKNet/RH1.hpp>
 namespace Pulsar {
 
 System* System::sInstance = nullptr;
@@ -134,9 +135,23 @@ void System::UpdateContext() {
 
     // Offline: racesScenario may be uninitialised at scene enter, so use the menu's CC selection.
     // Online: use the race scenario (actual host-decided / regional-merged CC).
+    // Pack Has200cc is constant; race-active 200cc is cc=1 (CC_100).
     const RacedataSettings& ccSource = (sceneId != SCENE_ID_GLOBE && controller->connectionState != RKNet::CONNECTIONSTATE_SHUTDOWN)
         ? racedataSettings : menuSettings;
-    bool is200 = ccSource.engineClass == CC_100 && this->info.Has200cc();
+    //spectating regional live-view: use the native RH1 engineClass field
+    u8 effectiveEngineClass = ccSource.engineClass;
+    if(controller != nullptr && RKNet::RH1Handler::sInstance != nullptr
+        && (controller->roomType == RKNet::ROOMTYPE_VS_REGIONAL || controller->roomType == RKNet::ROOMTYPE_JOINING_REGIONAL)) {
+        RKNet::RH1Handler* rh1 = RKNet::RH1Handler::sInstance;
+        for(int aid = 0; aid < 12; ++aid) {
+            const RKNet::RH1Data& cur = rh1->rh1Data[aid];
+            if(cur.trackId != 0xFFFFFFFF && cur.timer != 0) {
+                effectiveEngineClass = cur.engineClass;
+                break;
+            }
+        }
+    }
+    bool is200 = effectiveEngineClass == CC_100 && this->info.Has200cc();
     bool isLegacy200 = is200 && this->info.HasLegacy200ccMaxSpeed();
     bool isFeather = this->info.HasFeather();
     bool isUMTs = this->info.HasUMTs();

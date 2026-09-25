@@ -7,9 +7,11 @@
 #include <Race/200ccParams.hpp>
 #include <PulsarSystem.hpp>
 #include <UI/CustomVehicles/CustomVehicles.hpp>
+#include <MarioKartWii/Scene/RootScene.hpp>
 
 namespace Pulsar {
 namespace Race {
+
 //Mostly a port of MrBean's version with better hooks and arguments documentation
 RaceinfoPlayer* LoadCustomLapCount(RaceinfoPlayer* player, u8 id) {
     const u8 lapCount = KMP::Manager::sInstance->stgiSection->holdersArray[0]->raw->lapCount;
@@ -48,6 +50,19 @@ Kart::Stats* ApplySpeedModifier(KartId kartId, CharacterId characterId) {
     SpeedModConv speedModConv;
     speedModConv.kmpValue = (KMP::Manager::sInstance->stgiSection->holdersArray[0]->raw->speedMod << 16);
     if(speedModConv.speedMod == 0.0f) speedModConv.speedMod = 1.0f;
+
+    const u32 sceneId = GameScene::GetCurrent()->id;
+    const u32 raceCC = Racedata::sInstance->racesScenario.settings.engineClass;
+    const u32 raceNumber = Racedata::sInstance->racesScenario.settings.raceNumber;
+    static u32 lastRefreshScene = 0xFFFFFFFF;
+    static u32 lastRefreshRaceNumber = 0xFFFFFFFF;
+    static u32 lastRefreshCC = 0xFF;
+    if(sceneId != lastRefreshScene || raceNumber != lastRefreshRaceNumber || raceCC != lastRefreshCC) {
+        System::sInstance->UpdateContext();
+        lastRefreshScene = sceneId;
+        lastRefreshRaceNumber = raceNumber;
+        lastRefreshCC = raceCC;
+    }
 
     float factor = 1.0f;
     if (System::sInstance->IsContext(PULSAR_200)) {

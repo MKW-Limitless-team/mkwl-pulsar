@@ -35,6 +35,7 @@ static void AfterRH1Reception(register u8* aidArrDest, const RKNet::PacketHolder
     if(packetSize == sizeof(PulRH1)) track = static_cast<CourseId>(packet->pulsarTrackId);
     else track = static_cast<CourseId>(packet->trackId);
     data->trackId = track;
+    data->engineClass = packet->engineClass;
     memcpy(aidArrDest, &packet->aidsBelongingToPlayerIds[0], len);
 }
 kmCall(0x806652d0, AfterRH1Reception);
@@ -59,6 +60,7 @@ CourseId ReturnCorrectId(const RKNet::RH1Handler& rh1Handler) {
                 variantIdx = holder->packet->variantIdx;
             }
             cupsConfig->SetWinning(id, variantIdx);
+            if(System::sInstance != nullptr) System::sInstance->UpdateContext();
             return cupsConfig->GetCorrectTrackSlot();
         }
     }

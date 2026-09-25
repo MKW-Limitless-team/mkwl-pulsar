@@ -41,13 +41,16 @@ static void AfterSELECTReception(PulSELECT* unused, PulSELECT* src, u32 len) {
     PulSELECT& dest = handler->receivedPackets[aid];
     register RKNet::PacketHolder<PulSELECT>* holder;
     asm(mr holder, r27);
-    //decode the playstyle from kart ids >= 36 (kart + 36 * style) and restore the vanilla id
+    //decode the playstyle from kart ids (kart + 36 * style) and restore the vanilla id; kart < 36 is style 0
     if(System::sInstance != nullptr && aid < 12) {
         for(u8 slot = 0; slot < 2; ++slot) {
             const u8 extKart = src->playersData[slot].kart;
             if(extKart >= 36) {
                 src->playersData[slot].kart = extKart % 36;
                 System::sInstance->remoteStyles[aid][slot] = extKart / 36;
+            }
+            else {
+                System::sInstance->remoteStyles[aid][slot] = 0;
             }
         }
     }

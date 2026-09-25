@@ -13,7 +13,7 @@ import shutil
 # COMPILER may need to be adjusted depending on your CW path (especially for non-Windows users)
 # MYDIRS exists for if you have your own modifications inside a separate folder(s) from PulsarEngine
 # RIIVO should point to your pack's Binaries folder; the compiled Code.pul is copied here
-# You can build in debug with -d command line argument (you will need to edit DEBUG for this to work properly)
+# Debug flags are always active
 
 ENGINE = "./KamekInclude"
 GAMESOURCE = "./GameSource"
@@ -21,13 +21,13 @@ PULSAR = "./PulsarEngine"
 BUILD = "build"
 MYDIRS = []
 
-RIIVO = "C:/Users/pc/AppData/Roaming/Dolphin Emulator/Load/Riivolution/Limitless V8b1/Lim V8b1"
+RIIVO = "C:/Users/pc/AppData/Roaming/Dolphin Emulator/Load/Riivolution/Limitless V8b1/Lim V8b1/Binaries/"
 
 COMPILER = "C:/Program Files (x86)/Freescale/CW for MPC55xx and MPC56xx 2.10/PowerPC_EABI_Tools/Command_Line_Tools/mwcceppc.exe"
 FLAGS = (f'-I- -i "{ENGINE}" -i "{GAMESOURCE}" -i "{PULSAR}" ' +
 		 '-opt all -inline auto -enum int -fp hard -sdata 0 -sdata2 0 -maxerrors 1 -func_align 4 -MD -gccdep')
 LINKER = "./KamekLinker/Kamek.exe"
-DEBUG = ' -debug=0x803992E0 -map="Dolphin Emulator/Maps/RMCP01.map" -readelf="C:/MinGW/bin/readelf.exe"'
+DEBUG = ' -debug=0x803992E0 -map="C:/Users/pc/AppData/Roaming/Dolphin Emulator/Maps/RMCP01.map" -readelf="C:/msys64/ucrt64/bin/readelf.exe"'
 
 def log(log: str) -> None:
 	now = datetime.datetime.now().strftime("%H:%M:%S")
@@ -68,12 +68,8 @@ def compile_cpp(cpp: str) -> subprocess.CompletedProcess:
 	return subprocess.run(cmd, shell=True)
 
 if __name__ == "__main__":
-	# add debug flags if -d argument is passed
-	is_debug = False
-	if len(sys.argv) > 1 and sys.argv[1] == '-d':
-		FLAGS += ' -g'
-		is_debug = True
-		log("Compiling with debug info")
+	FLAGS += ' -g'
+	log("Compiling with debug info")
 
 	# find every cpp that may need compiled
 	cpp_files = glob.glob(f"{PULSAR}/**/*.cpp", recursive=True)
@@ -114,9 +110,7 @@ if __name__ == "__main__":
 		obj_string += f'"{obj}" '
 
 	log("Linking...")
-	linker_cmd = f'"{LINKER}" {obj_string} -dynamic -externals="{GAMESOURCE}/symbols.txt" -versions="{GAMESOURCE}/versions.txt" -output-combined={BUILD}/Code.pul'
-	if is_debug:
-		linker_cmd += DEBUG
+	linker_cmd = f'"{LINKER}" {obj_string} {DEBUG} -dynamic -externals="{GAMESOURCE}/symbols.txt" -versions="{GAMESOURCE}/versions.txt" -output-combined={BUILD}/Code.pul'
 	proc = subprocess.run(linker_cmd, shell=True)
 	
 	# copy binary to RIIVO

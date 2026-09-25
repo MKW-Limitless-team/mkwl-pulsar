@@ -49,6 +49,7 @@ private:
     void InitIO(IOType type) const;
     void InitCups(const ConfigFile& conf);
     void InitSettings(const u16* totalTrophyCount) const;
+public:
     void UpdateContext();
 protected:
     //Virtual
