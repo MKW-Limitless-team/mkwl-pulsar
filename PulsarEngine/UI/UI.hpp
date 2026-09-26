@@ -189,6 +189,9 @@ enum BMG {
     BMG_PLAY_TEAM_KO = 0x2918,
     BMG_PLAY_TEAM_OTTKO = 0x2919,
 
+    // Start CTs Message
+    BMG_CUSTOM_START_MESSAGE = 0x6921,
+
 
     BMG_CUPS = 0x10000,
     BMG_TRACKS = 0x20000,

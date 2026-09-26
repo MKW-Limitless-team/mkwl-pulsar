@@ -34,6 +34,8 @@ enum Context {
     PULSAR_MODE_OTT,
     PULSAR_MODE_KO,
     PULSAR_KOFINAL,
+    //Start CTs, makes a friend room convert itself into a public regional room
+    PULSAR_STARTCTS,
     PULSAR_CONTEXT_COUNT,
 };
 

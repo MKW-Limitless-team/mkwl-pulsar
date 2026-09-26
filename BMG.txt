@@ -1,4 +1,4 @@
-#BMG
+  #BMG
 
    3f7  = Limitlink (1P)
    58a  = {CC}cc
@@ -93,8 +93,7 @@
   2851  = OnlineTT
   2852  = I'm in an OnlineTT Race!
   2853  = OnlineTT Race
-  2854  = To \z{a02,1000000000} \u{246e}\z{802,110000}\z{802,110001}\z{802,110002}\z{802,110003}
-	+ \z{802,110004}\z{802,110005}\z{802,110006}\z{802,110007}\z{802,110008}
+  2854  = To \z{a02,1000000000} \u{246e}\z{802,110000}\z{802,110001}\z{802,110002}\z{802,110003}  + \z{802,110004}\z{802,110005}\z{802,110006}\z{802,110007}\z{802,110008}
   2860  = Knocked Out!
   2861  = \z{802,120000} wins the KO!
   2862  = Average Position Percent
@@ -142,7 +141,7 @@
   2f23  = OnlineTT Settings
   2f24  = KO Settings
   2f25  = Theme Settings
-  
+
   3000	= Fast Menus
   3001	= CT Layout
   3002	= Music
@@ -284,6 +283,7 @@
   6401  = Player sounds and the Position Tracker will be muted.
   6500  = Player sounds and the Position Tracker will behave normally.
   6501  = Player sounds and the Position Tracker will be muted.
+  6921  = Start Custom Tracks
   7000  = KO Mode
   7001  = Force 1v1 Final
   7010  = Disabled
@@ -317,7 +317,7 @@
   8001  = Theme
   8002  = Gradient
   8003  = Custom Textures
-  
+
   8010  = Disabled
   8011  = Enabled
   8012  = Forced

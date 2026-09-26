@@ -941,6 +941,7 @@ RequestBestTimeGhost__14RKSYSRequesterFUiUiUi8CourseIdb = 0x80621c78
 HandleAllRequests__14RKSYSRequesterFv = 0x806211dc
 
 #SectionMgr
+GetSectionPriority__10SectionMgrF9SectionId = 0x80634b80
 LoadSection__10SectionMgrFv = 0x80634fbc
 SetNextSection__10SectionMgrF9SectionIdUi = 0x80635a3c
 RequestSceneReinit__10SectionMgrFUiUi = 0x80635b2c
@@ -1641,8 +1642,10 @@ Init__Q25RKNet10ControllerFUc = 0x80655c10
 ScheduleShutdown__Q25RKNet10ControllerFv = 0x806561a8
 ResetRH1andROOM__Q25RKNet10ControllerFv = 0x80656898
 ProcessPlayerDisconnect__Q25RKNet10ControllerFUi = 0x80658990
+StartMatching__Q25RKNet10ControllerFv = 0x80659044
 ProcessRACEPacket__Q25RKNet10ControllerFUiRCQ25RKNet16RACEPacketHeaderUi = 0x80659a84
 UpdateAidsBelongingToPlayerIds__Q25RKNet10ControllerFv = 0x80659bc0
+UpdateStatusDatas__Q25RKNet10ControllerFv = 0x8065a0b4
  GetFriendSearchType__Q25RKNet10ControllerCFUi = 0x80659fa4
 sInstance__Q25RKNet10Controller = 0x809c20d8
 
