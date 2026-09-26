@@ -6,6 +6,9 @@
 namespace Pulsar {
 namespace Network {
 
+//Maximum number of blocked tracks that are synced through the ROOM and SELECT packets
+static const u32 MAX_TRACK_BLOCKING = 12;
+
 enum DenyType {
     DENY_TYPE_NORMAL,
     DENY_TYPE_BAD_PACK,

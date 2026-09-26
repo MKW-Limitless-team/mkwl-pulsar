@@ -6,7 +6,11 @@
 #include <MarioKartWii/RKNet/Select.hpp>
 #include <Network/Network.hpp>
 namespace Pulsar {
+class System;
+
 namespace Network {
+
+void StoreBlockedTrack(System& system, PulsarId trackId);
 
 #define GetRecvPulSELECTPacket(addr) \
 asmFunc GetRecvPulSELECTPacket##addr(){ \

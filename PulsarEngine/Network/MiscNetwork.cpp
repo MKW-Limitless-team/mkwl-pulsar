@@ -5,6 +5,7 @@
 #include <MarioKartWii/Race/Racedata.hpp>
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
 #include <Settings/Settings.hpp>
+#include <Network/Network.hpp>
 #include <Network/PulSELECT.hpp>
 #include <PulsarSystem.hpp>
 #include <AutoTrackSelect/ChooseNextTrack.hpp>
@@ -34,6 +35,44 @@ static void CalcSectionAfterRace(SectionMgr* sectionMgr, SectionId id) {
 }
 kmCall(0x8064f5fc, CalcSectionAfterRace);
 kmPatchExitPoint(CalcSectionAfterRace, 0x8064f648);
+
+static bool IsWiFiMenuSection(SectionId id) {
+    switch (id) {
+        case SECTION_P1_WIFI:
+        case SECTION_P1_WIFI_FROM_FROOM_RACE:
+        case SECTION_P1_WIFI_FROM_FIND_FRIEND:
+        case SECTION_P2_WIFI:
+        case SECTION_P2_WIFI_FROM_FROOM_RACE:
+        case SECTION_P2_WIFI_FROM_FIND_FRIEND:
+        case SECTION_WIFI_DISCONNECT_ERROR:
+        case SECTION_WIFI_DISCONNECT_GENERAL:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static void ResetTrackBlockingOnRoomEnd() {
+    SectionMgr* sectionMgr = SectionMgr::sInstance;
+    if (sectionMgr == nullptr || sectionMgr->curSection == nullptr) return;
+
+    const SectionId sectionId = sectionMgr->curSection->sectionId;
+    if (!IsWiFiMenuSection(sectionId)) return;
+
+    System* system = System::sInstance;
+    if (system == nullptr) return;
+
+    Mgr& netMgr = system->netMgr;
+    const u32 blockingCount = system->GetInfo().GetTrackBlocking();
+
+    if (netMgr.lastTracks != nullptr && blockingCount > 0) {
+        for (u32 i = 0; i < blockingCount; ++i) {
+            netMgr.lastTracks[i] = PULSARID_NONE;
+        }
+        netMgr.curBlockingArrayIdx = 0;
+    }
+}
+static SectionLoadHook resetTrackBlockingHook(ResetTrackBlockingOnRoomEnd);
 
 }//namespace Network
 }//namespace Pulsar

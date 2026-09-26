@@ -20,6 +20,54 @@ static void ConvertROOMPacketToData(const PulROOM& packet) {
     system->netMgr.racesPerGP = packet.raceCount;
 }
 
+// Sync blocked tracks from host packet to local netMgr
+static void SyncBlockedTracksFromHost(const PulROOM& packet) {
+    System* system = System::sInstance;
+    if (!system) return;
+
+    Network::Mgr& netMgr = system->netMgr;
+    const u32 localBlockingCount = system->GetInfo().GetTrackBlocking();
+
+    // Only sync if we have a lastTracks array allocated
+    if (netMgr.lastTracks == nullptr || localBlockingCount == 0) return;
+
+    // Copy blocked tracks from host, up to our local capacity
+    const u32 copyCount = (packet.blockedTrackCount < localBlockingCount) ? packet.blockedTrackCount : localBlockingCount;
+    for (u32 i = 0; i < copyCount; ++i) {
+        netMgr.lastTracks[i] = static_cast<PulsarId>(packet.blockedTracks[i]);
+    }
+    // Clear any remaining slots
+    for (u32 i = copyCount; i < localBlockingCount; ++i) {
+        netMgr.lastTracks[i] = PULSARID_NONE;
+    }
+
+    // Sync the circular buffer index
+    netMgr.curBlockingArrayIdx = packet.curBlockingArrayIdx % localBlockingCount;
+}
+
+// Write blocked tracks from local netMgr to outgoing packet
+static void WriteBlockedTracksToPacket(PulROOM* packet) {
+    System* system = System::sInstance;
+    if (!system) return;
+
+    const Network::Mgr& netMgr = system->netMgr;
+    const u32 blockingCount = system->GetInfo().GetTrackBlocking();
+
+    // Determine how many tracks to write (limited by packet capacity)
+    const u32 writeCount = (blockingCount < MAX_TRACK_BLOCKING) ? blockingCount : MAX_TRACK_BLOCKING;
+    packet->blockedTrackCount = static_cast<u8>(writeCount);
+    packet->curBlockingArrayIdx = netMgr.curBlockingArrayIdx;
+
+    // Copy tracks to packet
+    for (u32 i = 0; i < writeCount; ++i) {
+        packet->blockedTracks[i] = (netMgr.lastTracks != nullptr) ? static_cast<u16>(netMgr.lastTracks[i]) : 0xFFFF;
+    }
+    // Clear remaining slots
+    for (u32 i = writeCount; i < MAX_TRACK_BLOCKING; ++i) {
+        packet->blockedTracks[i] = 0xFFFF;
+    }
+}
+
 static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* src, u32 len) {
     packetHolder->Copy(src, len); //default
 
@@ -67,6 +115,7 @@ static void BeforeROOMSend(RKNet::PacketHolder<PulROOM>* packetHolder, PulROOM* 
             raceCount = 3;
         }
         destPacket->raceCount = raceCount;
+        WriteBlockedTracksToPacket(destPacket);
         ConvertROOMPacketToData(*destPacket);
     }
 }
@@ -81,6 +130,7 @@ static void AfterROOMReception(const RKNet::PacketHolder<PulROOM>* packetHolder,
     //START msg sent by the host, size check should always be guaranteed in theory
     if (src.messageType == 1 && sub.localAid != sub.hostAid && packetHolder->packetSize == sizeof(PulROOM)) {
         ConvertROOMPacketToData(src);
+        SyncBlockedTracksFromHost(src);
 
         //Also exit the settings page to prevent weird graphical artefacts
         Page* topPage = SectionMgr::sInstance->curSection->GetTopLayerPage();
