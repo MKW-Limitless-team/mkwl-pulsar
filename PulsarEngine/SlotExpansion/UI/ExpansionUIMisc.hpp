@@ -2,6 +2,8 @@
 #define _EXPANSIONUIMISC_
 #include <kamek.hpp>
 #include <MarioKartWii/System/Identifiers.hpp>
+#include <MarioKartWii/UI/Ctrl/PushButton.hpp>
+#include <MarioKartWii/UI/Page/Other/Votes.hpp>
 #include <PulsarSystem.hpp>
 #include <UI/UI.hpp>
 
@@ -33,6 +35,9 @@ inline void GetTrackBMG(char* dest, PulsarId id) {
 }
 int GetTrackBMGByRowIdx(u32 cupTrackIdx);
 int GetCurTrackBMG();
+bool IsTrackBlocked(PulsarId id);
+void SetCourseButtonMessage(PushButton& button, u32 bmgId, PulsarId trackId, u32 buttonIdx);
+void SetVoteControlMessage(VoteControl& vote, u32 bmgId, PulsarId courseVote, u32 playerId);
 }//namespace UI
 }//namespace Pulsar
 #endif
