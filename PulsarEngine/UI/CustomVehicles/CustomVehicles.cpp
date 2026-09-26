@@ -15,6 +15,7 @@
 #include <MarioKartWii/System/Random.hpp>
 #include <MarioKartWii/Race/RaceData.hpp>
 #include <MarioKartWii/Audio/RSARPlayer.hpp>
+#include <Settings/Settings.hpp>
 #include <core/rvl/dvd/dvd.hpp>
 #include <core/rvl/OS/OS.hpp>
 #include <core/egg/mem/Heap.hpp>
@@ -191,10 +192,17 @@ void RandomiseLocalPlaystyles() {
     }
 }
 
-//style to use for a race player; vanilla when unset or files missing
+//the custom archives carry custom models and textures; the theme settings can suppress them entirely
+static bool CustomArchivesEnabled() {
+    if(!Settings::Mgr::IsCreated()) return true;
+    return Settings::Mgr::Get().GetSettingValue(Settings::SETTINGSTYPE_THEME,
+        SETTINGTHEME_RADIO_CUSTOMTEXTURES) == THEMESETTING_CUSTOMTEXTURES_ENABLED;
+}
+
+//style to use for a race player; vanilla when unset, disabled or files missing
 static u8 RaceStyleForPlayer(u8 playerId, u32 kart, CharacterId character) {
     const u8 style = StyleForPlayer(playerId);
-    if(style == 0) return 0;
+    if(style == 0 || !CustomArchivesEnabled()) return 0;
     if(!VehicleStyleFileExists(kart, style, character)) return 0;
     return style;
 }
@@ -414,13 +422,18 @@ static bool MenuStyleFileExists(u32 character, u32 style) {
     return exists;
 }
 
+//menu style whose archive should actually be bound; 0 when custom archives are disabled or the style is missing
+static u8 BoundMenuStyle(u32 character, u8 style) {
+    if(style == 0 || !CustomArchivesEnabled()) return 0;
+    return MenuStyleFileExists(character, style) ? style : 0;
+}
+
 //latches an out-of-band selection (multiplayer picker) into the bound style
 void NoteMenuStyleSelected(u8 hud) {
     if(hud >= 4) return;
     MenuCharManager* mm = MenuManagerForHud(hud);
     if(mm == nullptr || mm->character < 0 || mm->character >= 0x30) return;
-    const u8 style = playstyles[hud] & 3;
-    menuBoundStyle[hud] = (style != 0 && MenuStyleFileExists(static_cast<u32>(mm->character), style)) ? style : 0;
+    menuBoundStyle[hud] = BoundMenuStyle(static_cast<u32>(mm->character), playstyles[hud] & 3);
 }
 
 //sets the playstyle for a hud randomised by the change-combo flow, and latches
@@ -428,7 +441,7 @@ void NoteMenuStyleSelected(u8 hud) {
 void NoteComboRandomisedStyle(u8 hud, u32 character, u8 style) {
     if(hud >= 4 || character >= 0x30) return;
     playstyles[hud] = style & 3;
-    menuBoundStyle[hud] = (style != 0 && MenuStyleFileExists(character, style)) ? style : 0;
+    menuBoundStyle[hud] = BoundMenuStyle(character, playstyles[hud]);
 }
 
 static bool MenuPathIsBattle(const char* path) {
@@ -491,7 +504,8 @@ static void MenuArchiveLoadHook(void* archiveCountPtr, char* path, EGG::Heap* ar
     }
     if(mgr != nullptr && path != nullptr && hud < 4 && !MenuPathIsBattle(path)) {
         const u8 style = menuBoundStyle[hud] & 3;
-        if(style != 0) {
+        //a stale bound style can never leak a styled path while custom archives are off
+        if(style != 0 && CustomArchivesEnabled()) {
             u32 character = 0;
             if(MenuPathCharacter(path, character) && MenuStyleFileExists(character, style)) {
                 const char* postfix = GeneratedMenuPostfix(character, style);
@@ -663,7 +677,7 @@ void ProcessMenuRebinds() {
                 menuBoundStyle[hud] = 0;
                 continue;
             }
-            menuBoundStyle[hud] = (style != 0 && MenuStyleFileExists(static_cast<u32>(mm->character), style)) ? style : 0;
+            menuBoundStyle[hud] = BoundMenuStyle(static_cast<u32>(mm->character), style);
         }
         menuBoundsSynced = true;
         return;
@@ -675,13 +689,11 @@ void ProcessMenuRebinds() {
 
     //detect style changes and rebind the menu archive in the same frame
     for(u8 hud = 0; hud < count; ++hud) {
-        const u8 style = playstyles[hud] & 3;
         MenuCharManager* mm = MenuManagerForHud(hud);
         if(mm == nullptr || mm->archiveHeap == nullptr) continue;
         if(mm->character < 0 || mm->character >= 0x30) continue;
-        //missing styles load vanilla; reload when the loaded archive differs
-        const bool styled = style != 0 && MenuStyleFileExists(static_cast<u32>(mm->character), style);
-        const u8 loadStyle = styled ? style : 0;
+        //missing styles and disabled custom archives load vanilla; reload when the loaded archive differs
+        const u8 loadStyle = BoundMenuStyle(static_cast<u32>(mm->character), playstyles[hud] & 3);
         if(loadStyle == menuBoundStyle[hud]) continue;
         if(iconsRebindPending) continue;
         if(modelMgr == nullptr || modelMgr->driverModels == nullptr || modelMgr->kartModels == nullptr) continue;
