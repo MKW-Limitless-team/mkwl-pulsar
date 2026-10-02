@@ -21,7 +21,7 @@ PULSAR = "./PulsarEngine"
 BUILD = "build"
 MYDIRS = []
 
-RIIVO = "C:/Users/pc/AppData/Roaming/Dolphin Emulator/Load/Riivolution/Limitless V8b1/Lim V8b1/Binaries/"
+RIIVO = "C:/Users/pc/AppData/Roaming/Dolphin Emulator/Load/Riivolution/Limitless V8b2/Lim V8b2/Binaries/"
 
 COMPILER = "C:/Program Files (x86)/Freescale/CW for MPC55xx and MPC56xx 2.10/PowerPC_EABI_Tools/Command_Line_Tools/mwcceppc.exe"
 FLAGS = (f'-I- -i "{ENGINE}" -i "{GAMESOURCE}" -i "{PULSAR}" ' +
