@@ -74,8 +74,8 @@ static const u32 COLOR_GAIN_RIGHT = 0x00FF11FF;
 
 static const char* KART_PARAM_PATH = "/Pulsar/UI/playstyle_kartparam.bin";
 static const u32 ENTRY_SIZE = 396;
-static const u32 VEHICLE_COUNT = 36;
-static const u32 STYLE_COUNT_REAL = 4;
+//VEHICLE_COUNT and STYLE_COUNT come from CustomVehicles.hpp: kartParam.bin holds one
+//block of VEHICLE_COUNT entries per style, indexed as kart + VEHICLE_COUNT * style
 static const u8* kartParamEntries = nullptr;
 static bool kartParamLoadAttempted = false;
 
@@ -182,8 +182,8 @@ static void Sort(float* values, u32 count) {
 
 static void ComputeRanges() {
     if(kartParamEntries == nullptr) return;
-    const u32 total = VEHICLE_COUNT * STYLE_COUNT_REAL;
-    float values[VEHICLE_COUNT * STYLE_COUNT_REAL];
+    const u32 total = VEHICLE_COUNT * STYLE_COUNT;
+    float values[VEHICLE_COUNT * STYLE_COUNT];
     for(u32 stat = 0; stat < STAT_COUNT; ++stat) {
         for(u32 e = 0; e < total; ++e) {
             values[e] = ExtractStat(kartParamEntries + e * ENTRY_SIZE, stat);
@@ -389,7 +389,7 @@ void GraphUpdateHook(CtrlMenuMachineGraph* graph, CharacterId character, KartId 
             const s32 size = static_cast<s32>(info.length);
             DVD::Close(&info);
             const s32 readSize = (size + 31) & ~31;
-            static u8 fileBuffer[VEHICLE_COUNT * STYLE_COUNT_REAL * ENTRY_SIZE + 4 + 64];
+            static u8 fileBuffer[VEHICLE_COUNT * STYLE_COUNT * ENTRY_SIZE + 4 + 64];
             u8* alignedBuf = reinterpret_cast<u8*>(
                 (reinterpret_cast<u32>(fileBuffer) + 31) & ~31u);
             //+32: alignedBuf sits up to 31 bytes past fileBuffer, so the head
@@ -408,8 +408,7 @@ void GraphUpdateHook(CtrlMenuMachineGraph* graph, CharacterId character, KartId 
 
     const Racedata* racedata = Racedata::sInstance;
     const GameMode gm = racedata != nullptr ? racedata->menusScenario.settings.gamemode : MODE_VS_RACE;
-    const bool isBattle = gm == MODE_BATTLE || gm == MODE_PUBLIC_BATTLE || gm == MODE_PRIVATE_BATTLE;
-    const u8 style = (hud < 4 && !isBattle) ? playstyles[hud] : 0;
+    const u8 style = (hud < 4 && !IsBattleMode(gm)) ? playstyles[hud] : 0;
 
     u8* abilities = *reinterpret_cast<u8**>(
         reinterpret_cast<u32>(graph) + 0x174);

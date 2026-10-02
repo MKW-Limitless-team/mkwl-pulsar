@@ -10,9 +10,6 @@
 namespace Pulsar {
 namespace UI {
 
-//per-local-player selected playstyle index; defined in CustomVehicles.cpp
-extern u8 playstyles[4];
-
 class PlaystyleSelect;
 
 //A-click gate installed as the plate's FORWARD_PRESS action handler: swallows the
