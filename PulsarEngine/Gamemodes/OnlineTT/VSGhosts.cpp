@@ -83,7 +83,8 @@ void AddGhostToVS() {
                 }
                 else memcpy(dest, rkg, sizeof(RKG));
                 racedata->menusScenario.players[playerCount - 1].playerType = PLAYER_GHOST;
-                UI::ghostPlaystyles[playerCount - 1] = dest->header.unknown_5[0] & 3;
+                //StyleForPlayer only reads the first four style slots, so the ghost gets none beyond that
+                if(playerCount - 1 < 4) UI::ghostPlaystyles[playerCount - 1] = dest->header.unknown_5[0] & 3;
             }
         }
         delete rkg;

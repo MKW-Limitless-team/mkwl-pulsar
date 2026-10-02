@@ -6,7 +6,6 @@
 #include <MarioKartWii/3D/Model/Menu/MenuModelMgr.hpp>
 #include <MarioKartWii/3D/Model/Menu/MenuKartModel.hpp>
 #include <MarioKartWii/3D/Model/Menu/MenuDriverModel.hpp>
-#include <MarioKartWii/RKNet/RKNetController.hpp>
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
 #include <MarioKartWii/UI/Page/Page.hpp>
 #include <MarioKartWii/UI/Page/Menu/Menu.hpp>
@@ -20,7 +19,7 @@ namespace Pulsar {
 namespace UI {
 namespace CustomVehicles {
 
-//style whose menu archive is bound per hud slot; 0 = vanilla (missing styles load vanilla)
+//style whose menu archive is bound per hud slot; 0 loads vanilla
 static u8 menuBoundStyle[4] = {0, 0, 0, 0};
 //set while a style-triggered archive reload is in flight
 static bool menuReloadOutstanding[4] = {false, false, false, false};
@@ -42,7 +41,7 @@ struct MenuArchiveLoader {
 static const s32 LOADER_HAS_REQUEST = 0;
 static const s32 LOADER_HAS_LOADED = 4;
 
-//game-accurate MenuDriverModel state ids (the header's 1/2 are wrong)
+//MenuDriverModel states as the game uses them
 static const u32 MENU_DRIVER_STATE_CHARSEL = 0;
 static const u32 MENU_DRIVER_STATE_ONKART = 2;
 //visibility bit of MenuDriverModel::model
@@ -109,26 +108,9 @@ static bool UsesPlaystyleSelectPage() {
         && section->pulPages[PULPAGE_PLAYSTYLESELECT - PULPAGE_INITIAL] != nullptr;
 }
 
-//player count for the current context: sectionParams offline, room sub online (1 there even with 2 local players)
-static u32 GetEffectiveLocalPlayerCount(const SectionMgr& mgr) {
-    u32 count = mgr.sectionParams->localPlayerCount;
-    if(count == 0 || count > 4) count = 1;
-    const RKNet::Controller* controller = RKNet::Controller::sInstance;
-    if(controller != nullptr) {
-        const u8 onlineCount = controller->subs[controller->currentSub].localPlayerCount;
-        if(onlineCount >= 1 && onlineCount <= 4 && static_cast<u32>(onlineCount) > count) {
-            count = onlineCount;
-        }
-    }
-    return count;
-}
-
-//is this hudSlot currently the one picking its vehicle? byte inside ControlsManipulatorManager
-static bool IsHudChoosingVehicle(Page* page, u8 hud) {
-    if(hud >= 4) return false;
-    enum { PLAYER_STATE_SIZE = 0x5c, IS_PER_CONTROL_OFFSET = 0xa4 };
-    const u8* manager = reinterpret_cast<const u8*>(page) + 0x430 + IS_PER_CONTROL_OFFSET;
-    return manager[hud * PLAYER_STATE_SIZE] != 0;
+//the vehicle select screen only changes style for a single local player; splitscreen does not
+static bool IsSinglePlayerScreen(const SectionMgr& mgr) {
+    return mgr.sectionParams->localPlayerCount < 2;
 }
 
 //---- style input on the vehicle select screen ----
@@ -161,16 +143,14 @@ static void EatButton(Input::RealControllerHolder& holder, u16 button, u16 actio
     holder.uiinputStates[0].buttonActions &= static_cast<u16>(~action);
 }
 
-//per-hud state of the vehicle select screen
-struct HudStyleUi {
+//state of player 1 on the vehicle select screen
+struct KartSelectUi {
     u32 shownKart; //STYLE_TOOLTIP_STALE forces a tooltip refresh
     u8 shownStyle;
     u16 heldButtons; //toggle buttons currently held, for edge detection
 };
 static const u32 STYLE_TOOLTIP_STALE = 0xFFFFFFFF;
-static HudStyleUi hudStyleUi[4] = {
-    {STYLE_TOOLTIP_STALE, 0, 0}, {STYLE_TOOLTIP_STALE, 0, 0},
-    {STYLE_TOOLTIP_STALE, 0, 0}, {STYLE_TOOLTIP_STALE, 0, 0}};
+static KartSelectUi kartSelectUi = {STYLE_TOOLTIP_STALE, 0, 0};
 
 //keep the style tooltip in sync with the hovered vehicle and the current style
 static void SetStyleLabel(Pages::Menu& page, u32 kart, u8 style) {
@@ -178,59 +158,51 @@ static void SetStyleLabel(Pages::Menu& page, u32 kart, u8 style) {
     page.bottomText->SetMessage(BMG_PLAYSTYLE_NAMES + kart * STYLE_COUNT + style);
 }
 
-//cycles each player's style on the shoulder buttons and mirrors it in the bottom text
+//cycles the style of player 1 on the shoulder buttons and mirrors it in the bottom text
 static void ProcessStyleInput(const SectionMgr& mgr, Page* top) {
-    const bool active = IsStyleSelectActive(top);
-    if(!active) {
+    if(!IsStyleSelectActive(top)) {
         //force a tooltip refresh on the next active frame
-        for(u8 hud = 0; hud < 4; ++hud) hudStyleUi[hud].shownKart = STYLE_TOOLTIP_STALE;
+        kartSelectUi.shownKart = STYLE_TOOLTIP_STALE;
+        return;
     }
 
-    const u32 count = GetEffectiveLocalPlayerCount(mgr);
-    for(u8 hud = 0; hud < count; ++hud) {
-        HudStyleUi& ui = hudStyleUi[hud];
-        //with several players on one console only the one picking a vehicle right now may act,
-        //and the shared bottom text follows that player
-        const bool mayAct = count == 1 || IsHudChoosingVehicle(top, hud);
-        const u32 kart = StatBars::GetHoveredVehicle(hud, mgr.sectionParams->karts[hud]);
-
-        if(active && mayAct && (ui.shownKart != kart || ui.shownStyle != playstyles[hud])) {
-            ui.shownKart = kart;
-            ui.shownStyle = playstyles[hud];
-            SetStyleLabel(*reinterpret_cast<Pages::Menu*>(top), kart, playstyles[hud]);
-        }
-
-        Input::RealControllerHolder* holder = mgr.pad.padInfos[hud].controllerHolder;
-        if(!mayAct || holder == nullptr || holder->curController == nullptr) {
-            ui.heldButtons = 0;
-            continue;
-        }
-
-        const ToggleButtons& toggle = TOGGLE_BUTTONS[ControllerForHud(mgr, hud)];
-        const u16 inputs = holder->inputStates[0].buttonRaw;
-        const u16 pressed = static_cast<u16>((inputs & (toggle.prev | toggle.next)) & ~ui.heldButtons);
-        ui.heldButtons = static_cast<u16>(inputs & (toggle.prev | toggle.next));
-        if((inputs & toggle.prev) != 0) EatButton(*holder, toggle.prev, toggle.prevAction);
-        if((inputs & toggle.next) != 0) EatButton(*holder, toggle.next, toggle.nextAction);
-
-        int step = 0;
-        if((pressed & toggle.prev) != 0) step = -1;
-        else if((pressed & toggle.next) != 0) step = 1;
-        else continue;
-
-        //don't change style while a reload is in flight or its icon rebind hasn't settled yet
-        if(menuReloadOutstanding[hud] || iconsRebindPending) continue;
-
-        //cycle through all styles; vehicles without a style archive fall back to vanilla
-        const u8 style = playstyles[hud];
-        const u32 next = (style + STYLE_COUNT + step) % STYLE_COUNT;
-        if(next == style) continue;
-
-        playstyles[hud] = static_cast<u8>(next);
-        Audio::RSARPlayer::PlaySoundById(step > 0 ? SOUND_ID_RIGHT_ARROW_PRESS : SOUND_ID_LEFT_ARROW_PRESS, 0, nullptr);
-        //stat bars reflect the newly selected playstyle immediately
-        StatBars::RefreshGridBars(hud, static_cast<KartId>(kart));
+    const u32 kart = StatBars::GetHoveredVehicle(0, mgr.sectionParams->karts[0]);
+    if(kartSelectUi.shownKart != kart || kartSelectUi.shownStyle != playstyles[0]) {
+        kartSelectUi.shownKart = kart;
+        kartSelectUi.shownStyle = playstyles[0];
+        SetStyleLabel(*reinterpret_cast<Pages::Menu*>(top), kart, playstyles[0]);
     }
+
+    Input::RealControllerHolder* holder = mgr.pad.padInfos[0].controllerHolder;
+    if(holder == nullptr || holder->curController == nullptr) {
+        kartSelectUi.heldButtons = 0;
+        return;
+    }
+
+    const ToggleButtons& toggle = TOGGLE_BUTTONS[ControllerForHud(mgr, 0)];
+    const u16 inputs = holder->inputStates[0].buttonRaw;
+    const u16 pressed = static_cast<u16>((inputs & (toggle.prev | toggle.next)) & ~kartSelectUi.heldButtons);
+    kartSelectUi.heldButtons = static_cast<u16>(inputs & (toggle.prev | toggle.next));
+    if((inputs & toggle.prev) != 0) EatButton(*holder, toggle.prev, toggle.prevAction);
+    if((inputs & toggle.next) != 0) EatButton(*holder, toggle.next, toggle.nextAction);
+
+    int step = 0;
+    if((pressed & toggle.prev) != 0) step = -1;
+    else if((pressed & toggle.next) != 0) step = 1;
+    else return;
+
+    //don't change style while a reload is in flight or its icon rebind hasn't settled yet
+    if(menuReloadOutstanding[0] || iconsRebindPending) return;
+
+    //cycle through all styles; vehicles without a style archive fall back to vanilla
+    const u8 style = playstyles[0];
+    const u32 next = (style + STYLE_COUNT + step) % STYLE_COUNT;
+    if(next == style) return;
+
+    playstyles[0] = static_cast<u8>(next);
+    Audio::RSARPlayer::PlaySoundById(step > 0 ? SOUND_ID_RIGHT_ARROW_PRESS : SOUND_ID_LEFT_ARROW_PRESS, 0, nullptr);
+    //stat bars reflect the newly selected playstyle immediately
+    StatBars::RefreshGridBars(0, static_cast<KartId>(kart));
 }
 
 //---- menu archive binding ----
@@ -249,8 +221,7 @@ void NoteMenuStyleSelected(u8 hud) {
     menuBoundStyle[hud] = BoundMenuStyle(static_cast<u32>(character), playstyles[hud] & 3);
 }
 
-//sets the playstyle for a hud randomised by the change-combo flow, and latches
-//the bound style for the newly picked character so the first menu load is styled
+//sets a randomised playstyle and latches the bound style of the new character
 void NoteComboRandomisedStyle(u8 hud, u32 character, u8 style) {
     if(hud >= 4 || character >= CHARACTER_COUNT) return;
     playstyles[hud] = style & 3;
@@ -309,7 +280,7 @@ static void MenuArchiveLoadHook(ArchivesHolder* holder, char* path, EGG::Heap* m
     const u8 hud = HudForMenuArchive(mgr, holder);
     if(mgr != nullptr && path != nullptr && hud < 4 && !MenuPathIsBattle(path)) {
         const u8 style = menuBoundStyle[hud] & 3;
-        //a stale bound style can never leak a styled path while custom archives are off
+        //custom archives off: never substitute a styled path
         if(style != 0 && CustomArchivesEnabled()) {
             u32 character = 0;
             if(MenuPathCharacter(path, character) && CharacterStyleArchiveExists(character, style)) {
@@ -396,8 +367,7 @@ static bool IsVehicleIconButton(UIControl* control) {
     return static_cast<LayoutUIControl*>(control)->layout.GetPaneByName("hatena") != nullptr;
 }
 
-//walks every vehicle icon of the kart select rows, re-binding them after a style reload
-//and reporting whether every one of them has its bind flag set again
+//re-binds the kart select row icons and reports whether every one of them is bound
 static bool PollVehicleSelectIcons(bool rebind) {
     Page* top = KartSelectTopPage();
     if(top == nullptr) return true;
@@ -414,7 +384,6 @@ static bool PollVehicleSelectIcons(bool rebind) {
                 UIControl* button = buttons.GetControl(b);
                 if(button == nullptr || !IsVehicleIconButton(button)) continue;
                 if(rebind) {
-                    //re-link after the in-place reload so the row reflects the new style
                     const u8 bound = RealButtonBindTexture(button);
                     //0 lets the game's OnUpdate re-bind the button once its icon has streamed in
                     *(reinterpret_cast<u8*>(button) + BUTTON_BOUND_FLAG) = bound;
@@ -428,8 +397,7 @@ static bool PollVehicleSelectIcons(bool rebind) {
 
 //---- per-frame driver ----
 
-//finishes reloads that are already in flight; runs on every page so a reload that
-//survives a page change still re-shows its driver
+//finishes in-flight reloads on every page, so one that survives a page change still restores its driver
 static void ProcessMenuRebindRestore() {
     MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
     const bool modelsLoaded = modelMgr != nullptr && modelMgr->driverModels != nullptr
@@ -438,7 +406,7 @@ static void ProcessMenuRebindRestore() {
         if(!menuReloadOutstanding[hud] || !modelsLoaded) continue;
         const MenuArchiveLoader* loader = MenuLoaderForHud(hud);
         if(loader == nullptr) continue;
-        //the request never started, so nothing will ever restore this driver
+        //no request in flight: abandon the restore
         if(loader->state == LOADER_HAS_REQUEST) {
             AbortMenuReload(hud);
             continue;
@@ -447,12 +415,12 @@ static void ProcessMenuRebindRestore() {
         FinishMenuReload(hud);
     }
 
+    //no reload to settle: drop the one-shot rebind flag again
     if(!iconsRebindPending) {
         iconsRebound = false;
         return;
     }
-    //re-link the row icons once the regenerated models are locked, and keep gating style
-    //input until every icon is bound again
+    //re-link the row icons once the regenerated models are locked, then keep gating style input until they are bound
     if(!modelsLoaded || !modelMgr->kartModels->players[0].isLocked) return;
     const MenuArchiveLoader* loader = MenuLoaderForHud(0);
     if(loader == nullptr || loader->state != LOADER_HAS_LOADED) return;
@@ -467,44 +435,28 @@ static void ProcessMenuRebindRestore() {
 }
 
 //requests a reload whenever the style to load no longer matches the bound one
-static void ProcessMenuRebindRequests(const SectionMgr& mgr) {
-    //the first pass only synchronises the bound styles with the playstyles
-    static bool menuBoundsSynced = false;
-    if(!menuBoundsSynced) {
-        for(u8 hud = 0; hud < 4; ++hud) {
-            const s32 character = LoadedCharacter(hud);
-            menuBoundStyle[hud] = character < 0 ? 0
-                : BoundMenuStyle(static_cast<u32>(character), playstyles[hud] & 3);
-        }
-        menuBoundsSynced = true;
-        return;
-    }
-
+static void ProcessMenuRebindRequests() {
     ArchiveMgr* archiveMgr = ArchiveMgr::sInstance;
     MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
     MenuDriverModelMgr* drivers = DriverModels();
     if(archiveMgr == nullptr || drivers == nullptr || modelMgr == nullptr || modelMgr->kartModels == nullptr) return;
-    const u32 count = GetEffectiveLocalPlayerCount(mgr);
+    const MenuArchiveLoader* loader = MenuLoaderForHud(0);
+    const s32 character = LoadedCharacter(0);
+    if(loader == nullptr || loader->mountHeap == nullptr || character < 0) return;
+    if(drivers->players[0].playerModel == nullptr) return;
+    //missing styles and disabled custom archives load vanilla; reload when the loaded archive differs
+    const u8 loadStyle = BoundMenuStyle(static_cast<u32>(character), playstyles[0] & 3);
+    if(loadStyle == menuBoundStyle[0] || iconsRebindPending) return;
 
-    for(u8 hud = 0; hud < count; ++hud) {
-        const MenuArchiveLoader* loader = MenuLoaderForHud(hud);
-        const s32 character = LoadedCharacter(hud);
-        if(loader == nullptr || loader->mountHeap == nullptr || character < 0) continue;
-        if(drivers->players[hud].playerModel == nullptr) continue;
-        //missing styles and disabled custom archives load vanilla; reload when the loaded archive differs
-        const u8 loadStyle = BoundMenuStyle(static_cast<u32>(character), playstyles[hud] & 3);
-        if(loadStyle == menuBoundStyle[hud] || iconsRebindPending) continue;
-
-        HideDriverForReload(drivers, hud);
-        menuReloadOutstanding[hud] = true;
-        modelMgr->ResetKartModels(hud);
-        if(!RequestMenuReload(archiveMgr, hud, static_cast<u32>(character), static_cast<u32>(loader->mode))) {
-            AbortMenuReload(hud);
-            continue;
-        }
-        menuBoundStyle[hud] = loadStyle;
-        iconsRebindPending = true;
+    HideDriverForReload(drivers, 0);
+    menuReloadOutstanding[0] = true;
+    modelMgr->ResetKartModels(0);
+    if(!RequestMenuReload(archiveMgr, 0, static_cast<u32>(character), static_cast<u32>(loader->mode))) {
+        AbortMenuReload(0);
+        return;
     }
+    menuBoundStyle[0] = loadStyle;
+    iconsRebindPending = true;
 }
 
 void MenuStyleUpdate() {
@@ -514,10 +466,11 @@ void MenuStyleUpdate() {
     if(UsesPlaystyleSelectPage()) return;
     const SectionMgr* mgr = SectionMgr::sInstance;
     if(mgr == nullptr || mgr->sectionParams == nullptr) return;
+    if(!IsSinglePlayerScreen(*mgr)) return;
     Page* top = KartSelectTopPage();
     if(top == nullptr) return;
     ProcessStyleInput(*mgr, top);
-    ProcessMenuRebindRequests(*mgr);
+    ProcessMenuRebindRequests();
 }
 
 }//namespace CustomVehicles

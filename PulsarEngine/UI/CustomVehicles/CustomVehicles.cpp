@@ -27,8 +27,7 @@ u8 cpuPlaystyles[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 namespace CustomVehicles {
 
-//style (0-3) for a race player: ghost -> ghostPlaystyles, cpu -> cpuPlaystyles,
-//local -> playstyles, remote -> System::remoteStyles
+//style (0-3) for a race player: ghost -> ghostPlaystyles, cpu -> cpuPlaystyles, local/remote -> playstyles/remoteStyles
 u8 StyleForPlayer(u8 playerId) {
     const Racedata* raceData = Racedata::sInstance;
     if(raceData == nullptr) return 0;
@@ -36,10 +35,11 @@ u8 StyleForPlayer(u8 playerId) {
     const GameMode gamemode = scenario.settings.gamemode;
     if(IsBattleMode(gamemode)) return 0;
 
-    if(playerId < 12) {
-        const RacedataPlayer& player = scenario.players[playerId];
-        if(player.playerType == PLAYER_GHOST) return ghostPlaystyles[playerId] & 3;
-        if(player.playerType == PLAYER_CPU) return cpuPlaystyles[playerId] & 3;
+    if(playerId < 4 && scenario.players[playerId].playerType == PLAYER_GHOST) {
+        return ghostPlaystyles[playerId] & 3;
+    }
+    if(playerId < 12 && scenario.players[playerId].playerType == PLAYER_CPU) {
+        return cpuPlaystyles[playerId] & 3;
     }
 
     const RKNet::Controller* controller = RKNet::Controller::sInstance;
@@ -65,7 +65,7 @@ u8 StyleForPlayer(u8 playerId) {
     return static_cast<u8>(system->remoteStyles[aid][slot] & 3);
 }
 
-//assign each cpu race player a random style 1-3, stable for the whole session
+//assign each cpu race player a random style 1-3, re-rolled from the race seed
 void RandomiseCpuPlaystyles() {
     const Racedata* raceData = Racedata::sInstance;
     if(raceData == nullptr) return;
@@ -74,7 +74,7 @@ void RandomiseCpuPlaystyles() {
     if(gamemode != MODE_GRAND_PRIX && gamemode != MODE_VS_RACE) return;
     Random random(scenario.settings.randomSeed);
     for(u8 i = 0; i < 12; ++i) {
-        //no archive validation: a vehicle without a style archive falls back to vanilla
+        //the style is not checked against the archives here; a miss falls back to vanilla in the race
         cpuPlaystyles[i] = scenario.players[i].playerType == PLAYER_CPU
             ? static_cast<u8>(1 + random.NextLimited(STYLE_COUNT - 1)) : 0;
     }
@@ -93,11 +93,8 @@ void RandomiseLocalPlaystyles() {
     if(count == 0 || count > 4) count = 1;
     Random random;
     for(u32 hud = 0; hud < count; ++hud) {
-        const CharacterId character = sectionParams->characters[hud];
         const u8 style = static_cast<u8>(random.NextLimited(STYLE_COUNT));
-        sectionParams->combos[hud].selCharacter = character;
-        sectionParams->combos[hud].selKart = sectionParams->karts[hud];
-        NoteComboRandomisedStyle(static_cast<u8>(hud), character, style);
+        NoteComboRandomisedStyle(static_cast<u8>(hud), sectionParams->characters[hud], style);
     }
 }
 
@@ -118,8 +115,7 @@ static LoadKartArchiveFunc const RealLoadKartArchive =
 static LoadKartArchiveFunc const RealLoadBackupKartArchive =
     reinterpret_cast<LoadKartArchiveFunc>(kmRuntimeAddr(0x80540f90));
 
-//the styled archives are named after "<vehicleName>-<style>", so swapping the vehicle name entry
-//makes the game build the styled paths itself
+//the archives are named "<vehicleName>-<style>", so patching the name makes the game build that path
 static ArchivesHolder* LoadKartArchiveWithStyle(LoadKartArchiveFunc load, ArchiveMgr* archiveMgr, u8 playerId,
     KartId kart, CharacterId character, u32 color, u32 type, EGG::Heap* decompressedHeap, EGG::Heap* archiveHeap) {
     const u8 style = RaceStyleForPlayer(playerId, kart, character);
@@ -145,19 +141,10 @@ static ArchivesHolder* LoadBackupKartArchiveHook(ArchiveMgr* archiveMgr, u8 play
 }
 kmCall(0x80554198, LoadBackupKartArchiveHook);
 
-//A TT-vs-ghost kart load decompresses one player's archive off the DVD and the next off the SD as a
-//loose Yaz0 file, reusing the same mountHeap. The second allocation then comes off a poisoned free
-//list and ArchiveFile::Decompress's decodeSZS writes to garbage (observed DSI with R00=ma_bike's
-//0x55D80 size and R02=0x8038xxxx). Kart archives decode onto a root heap instead, which is the same
-//body ArchiveFile::Decompress runs with a different heap argument.
-static u32 KartArchiveBE32(const void* data) {
-    const u8* bytes = static_cast<const u8*>(data);
-    return (static_cast<u32>(bytes[0]) << 24) | (static_cast<u32>(bytes[1]) << 16) |
-           (static_cast<u32>(bytes[2]) << 8) | static_cast<u32>(bytes[3]);
-}
-
-//Root heaps are persistent for the process lifetime, so they never see the mountHeap churn above.
-//The system heap is last-resort only: it is the heap the game itself recycles between races.
+//A TT-vs-ghost kart load reuses one mountHeap for the DVD and the SD archive, so the second
+//allocation comes off a poisoned free list and decodeSZS writes to garbage (DSI, R00=ma_bike's
+//0x55D80 size). Kart archives decode onto a root heap instead: it lives for the whole process,
+//while the system heap is the one the game recycles between races.
 static EGG::Heap* KartArchiveRootHeap(u32 requiredSize) {
     EGG::Heap* systemHeap = nullptr;
     if(System::sInstance != nullptr) systemHeap = static_cast<EGG::Heap*>(System::sInstance->heap);
@@ -172,9 +159,7 @@ static EGG::Heap* KartArchiveRootHeap(u32 requiredSize) {
     return nullptr;
 }
 
-//Kart-only scoping: every other archive keeps stock behaviour.
-//MKW formats these requests WITHOUT a leading slash (mkw-pal.c snprintf "Race/Kart/..."), so the
-//prefix must match exactly or the substitution never fires.
+//kart-only scoping, and MKW formats these paths without a leading slash, so the prefix must match
 static bool IsRaceKartArchivePath(const char* path) {
     static const char prefix[] = "Race/Kart/";
     return path != nullptr && strncmp(path, prefix, sizeof(prefix) - 1) == 0;
@@ -185,8 +170,8 @@ static void ArchiveFileDecompressHook(ArchiveFile* file, const char* path, EGG::
     u8* compressed = static_cast<u8*>(file->compressedArchive);
     u32 size = EGG::Decomp::getExpandSize(compressed);
     EGG::Heap* target = heap;
-    //only the Yaz0 kart path is redirected; anything else keeps the caller's mountHeap
-    if(IsRaceKartArchivePath(path) && size >= 0x10 && KartArchiveBE32(compressed) == 0x59617a30) {
+    //kart archives decode onto a root heap; every other archive keeps the caller's mountHeap
+    if(IsRaceKartArchivePath(path)) {
         EGG::Heap* rootHeap = KartArchiveRootHeap(size);
         if(rootHeap != nullptr) target = rootHeap;
     }
