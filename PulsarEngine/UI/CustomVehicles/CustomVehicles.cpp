@@ -2,6 +2,9 @@
 #include <UI/UI.hpp>
 #include <UI/PlaystyleStatBars.hpp>
 #include <MarioKartWii/Archive/ArchiveMgr.hpp>
+#include <MarioKartWii/Archive/ArchiveFile.hpp>
+#include <core/egg/Decomp.hpp>
+#include <core/RK/RKSystem.hpp>
 #include <MarioKartWii/3D/Model/Menu/MenuModelMgr.hpp>
 #include <MarioKartWii/3D/Model/Menu/MenuKartModel.hpp>
 #include <MarioKartWii/3D/Model/Menu/MenuDriverModel.hpp>
@@ -18,7 +21,9 @@
 #include <Settings/Settings.hpp>
 #include <core/rvl/dvd/dvd.hpp>
 #include <core/rvl/OS/OS.hpp>
+#include <core/rvl/os/OSCache.hpp>
 #include <core/egg/mem/Heap.hpp>
+#include <include/c_string.h>
 #include <runtimeWrite.hpp>
 
 namespace Pulsar {
@@ -757,6 +762,61 @@ static ArchivesHolder* LoadBackupKartArchiveHook(ArchiveMgr* archiveMgr, u8 play
     return holder;
 }
 kmCall(0x80554198, LoadBackupKartArchiveHook);
+
+//A TT-vs-ghost kart load decompresses one player's archive off the DVD and the next off the SD as a
+//loose Yaz0 file, reusing the same mountHeap. The second allocation then comes off a poisoned free
+//list and ArchiveFile::Decompress's decodeSZS writes to garbage (observed DSI with R00=ma_bike's
+//0x55D80 size and R02=0x8038xxxx). Kart archives decode onto a root heap instead, which is the same
+//body ArchiveFile::Decompress runs with a different heap argument.
+static u32 KartArchiveBE32(const void* data) {
+    const u8* bytes = static_cast<const u8*>(data);
+    return (static_cast<u32>(bytes[0]) << 24) | (static_cast<u32>(bytes[1]) << 16) |
+           (static_cast<u32>(bytes[2]) << 8) | static_cast<u32>(bytes[3]);
+}
+
+//Root heaps are persistent for the process lifetime, so they never see the mountHeap churn above.
+//The system heap is last-resort only: it is the heap the game itself recycles between races.
+static EGG::Heap* KartArchiveRootHeap(u32 requiredSize) {
+    EGG::Heap* systemHeap = nullptr;
+    if(System::sInstance != nullptr) systemHeap = static_cast<EGG::Heap*>(System::sInstance->heap);
+    EGG::Heap* candidates[3];
+    candidates[0] = RKSystem::mInstance.EGGRootMEM2;
+    candidates[1] = RKSystem::mInstance.EGGRootMEM1;
+    candidates[2] = systemHeap;
+    for(u32 i = 0; i < 3; ++i) {
+        if(candidates[i] == nullptr) continue;
+        if(candidates[i]->getAllocatableSize(0x20) >= requiredSize) return candidates[i];
+    }
+    return nullptr;
+}
+
+//Kart-only scoping: every other archive keeps stock behaviour.
+//MKW formats these requests WITHOUT a leading slash (mkw-pal.c snprintf "Race/Kart/..."), so the
+//prefix must match exactly or the substitution never fires.
+static bool IsRaceKartArchivePath(const char* path) {
+    static const char prefix[] = "Race/Kart/";
+    return path != nullptr && strncmp(path, prefix, sizeof(prefix) - 1) == 0;
+}
+
+static void ArchiveFileDecompressHook(ArchiveFile* file, const char* path, EGG::Heap* heap,
+    EGG::Archive::FileInfo* info) {
+    u8* compressed = static_cast<u8*>(file->compressedArchive);
+    u32 size = EGG::Decomp::getExpandSize(compressed);
+    EGG::Heap* target = heap;
+    //only the Yaz0 kart path is redirected; anything else keeps the caller's mountHeap
+    if(IsRaceKartArchivePath(path) && size >= 0x10 && KartArchiveBE32(compressed) == 0x59617a30) {
+        EGG::Heap* rootHeap = KartArchiveRootHeap(size);
+        if(rootHeap != nullptr) target = rootHeap;
+    }
+    u8* dest = EGG::Heap::alloc<u8>(size, 0x20, target);
+    EGG::Decomp::decodeSZS(compressed, dest);
+    file->archiveSize = size;
+    file->rawArchive = dest;
+    file->archiveHeap = target;
+    OS::DCStoreRange(dest, size);
+    file->status = ARCHIVE_STATUS_DECOMPRESSED;
+}
+kmBranch(0x80519508, ArchiveFileDecompressHook);
 
 //only applies star colours when the styled archive actually provides them
 static void SetModelColorsIfReady(void* starAnm, void* drawMdl) {

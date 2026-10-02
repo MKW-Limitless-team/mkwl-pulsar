@@ -28,6 +28,7 @@ sin = 0x8001ba98
 pow = 0x8001bbf0
 strlen = 0x80021254
 decodeSZS__Q23EGG6DecompFPUcPUc = 0x80218c2c
+getExpandSize__Q23EGG6DecompFPUc = 0x8021997c
 DCInvalidateRange__2OSFPvUi = 0x801a1600
 DCStoreRange__2OSFPvUi = 0x801a165c
 DCFlushRange__2OSFPvUi = 0x801a162c
