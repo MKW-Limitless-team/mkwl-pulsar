@@ -9,6 +9,7 @@
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
 #include <MarioKartWii/UI/Page/Page.hpp>
 #include <MarioKartWii/UI/Page/Menu/Menu.hpp>
+#include <MarioKartWii/UI/Page/Other/ModelRenderer.hpp>
 #include <MarioKartWii/Input/ControllerHolder.hpp>
 #include <MarioKartWii/Audio/RSARPlayer.hpp>
 #include <core/egg/mem/Heap.hpp>
@@ -21,12 +22,10 @@ namespace CustomVehicles {
 
 //style whose menu archive is bound per hud slot; 0 loads vanilla
 static u8 menuBoundStyle[4] = {0, 0, 0, 0};
-//set while a style-triggered archive reload is in flight
-static bool menuReloadOutstanding[4] = {false, false, false, false};
-//set once a reload was requested so the row icons re-bind the following frame
-static bool iconsRebindPending = false;
-//set between requesting the icon re-bind and every icon having its bind flag back
-static bool iconsRebound = false;
+//set when a reload is requested, until the rebuilt icons are bound again
+static bool iconRebindPending = false;
+//set once the icon bind latches were cleared, so the wait does not clear them every frame
+static bool iconLatchesCleared = false;
 
 //ArchiveMgr::allkartsModelsLoaders[hud], seen as the fields the style machinery needs
 struct MenuArchiveLoader {
@@ -35,32 +34,18 @@ struct MenuArchiveLoader {
     EGG::ExpHeap* dumpHeap;  //+0x8
     s32 state;               //+0xc AllkartArchivesLoader::State
     s32 character;           //+0x10
-    s32 mode;                //+0x14 0 for vs, 2 for battle
 };
 //AllkartArchivesLoader::State
-static const s32 LOADER_HAS_REQUEST = 0;
 static const s32 LOADER_HAS_LOADED = 4;
 
-//MenuDriverModel states as the game uses them
-static const u32 MENU_DRIVER_STATE_CHARSEL = 0;
-static const u32 MENU_DRIVER_STATE_ONKART = 2;
-//visibility bit of MenuDriverModel::model
-static const u32 DRIVER_MODEL_VISIBLE = 0x100000;
-//offset of the bind flag inside a vehicle row button
-static const u32 BUTTON_BOUND_FLAG = 0x25C;
+//offset of the icon bind latch inside a ButtonMachine vehicle row button
+static const u32 ICON_BOUND_LATCH = 0x25C;
 
-kmRuntimeUse(0x80542210);
-typedef bool (*RequestMenuReloadFunc)(ArchiveMgr*, u8, u32, u32);
-static RequestMenuReloadFunc const RequestMenuReload = reinterpret_cast<RequestMenuReloadFunc>(kmRuntimeAddr(0x80542210));
-
-kmRuntimeUse(0x808478F4);
-typedef u8 (*ButtonBindFunc)(UIControl*);
-static ButtonBindFunc const RealButtonBindTexture = reinterpret_cast<ButtonBindFunc>(kmRuntimeAddr(0x808478F4));
-
-kmRuntimeUse(0x80830c64);
-typedef void (*PrepareDriverOnKartAnmsFunc)(MenuDriverModelMgr*, u32);
-static PrepareDriverOnKartAnmsFunc const RealPrepareDriverOnKartAnms =
-    reinterpret_cast<PrepareDriverOnKartAnmsFunc>(kmRuntimeAddr(0x80830c64));
+//the game's own "rebuild this slot's menu models for this character" (0x805f570c)
+typedef void (*LoadKartModelsByCharacterFunc)(Pages::ModelRenderer*, u32, CharacterId);
+kmRuntimeUse(0x805f570c);
+static LoadKartModelsByCharacterFunc const LoadKartModelsByCharacter =
+    reinterpret_cast<LoadKartModelsByCharacterFunc>(kmRuntimeAddr(0x805f570c));
 
 static MenuArchiveLoader* MenuLoaderForHud(u8 hud) {
     ArchiveMgr* mgr = ArchiveMgr::sInstance;
@@ -75,10 +60,10 @@ static s32 LoadedCharacter(u8 hud) {
     return loader->character;
 }
 
-static MenuDriverModelMgr* DriverModels() {
+static MenuDriverModel* DriverModelForHud(u8 hud) {
     MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
-    if(modelMgr == nullptr || modelMgr->driverModels == nullptr) return nullptr;
-    return modelMgr->driverModels;
+    if(modelMgr == nullptr || modelMgr->driverModels == nullptr || hud >= 4) return nullptr;
+    return modelMgr->driverModels->players[hud].playerModel;
 }
 
 //---- page and player context ----
@@ -112,6 +97,23 @@ static bool UsesPlaystyleSelectPage() {
 static bool IsSinglePlayerScreen(const SectionMgr& mgr) {
     return mgr.sectionParams->localPlayerCount < 2;
 }
+
+kmRuntimeUse(0x80830c64);
+typedef void (*PrepareDriverOnKartAnmsFunc)(MenuDriverModelMgr*, u32);
+static PrepareDriverOnKartAnmsFunc const RealPrepareDriverOnKartAnms =
+    reinterpret_cast<PrepareDriverOnKartAnmsFunc>(kmRuntimeAddr(0x80830c64));
+
+static void PrepareDriverOnKartAnmsHook(MenuDriverModelMgr* mgr, u32 hud) {
+    RealPrepareDriverOnKartAnms(mgr, hud);
+    if(hud >= 4) return;
+    MenuDriverModel* driver = mgr->players[hud].playerModel;
+    if(driver == nullptr) return;
+    //the original leaves the driver on its character select transformator, so put it back on the kart
+    if(driver->state != MenuDriverModel::MENUDRIVERMODEL_STATE_ONKARTSELECT && !iconRebindPending) return;
+    driver->state = MenuDriverModel::MENUDRIVERMODEL_STATE_ONCHARSELECT; //SwitchState ignores an unchanged state
+    driver->SwitchState(static_cast<u8>(hud), MenuDriverModel::MENUDRIVERMODEL_STATE_ONKARTSELECT);
+}
+kmCall(0x80832ea4, PrepareDriverOnKartAnmsHook);
 
 //---- style input on the vehicle select screen ----
 
@@ -191,8 +193,8 @@ static void ProcessStyleInput(const SectionMgr& mgr, Page* top) {
     else if((pressed & toggle.next) != 0) step = 1;
     else return;
 
-    //don't change style while a reload is in flight or its icon rebind hasn't settled yet
-    if(menuReloadOutstanding[0] || iconsRebindPending) return;
+    //don't change style while a reload is in flight or its icons have not been bound again
+    if(iconRebindPending) return;
 
     //cycle through all styles; vehicles without a style archive fall back to vanilla
     const u8 style = playstyles[0];
@@ -261,42 +263,68 @@ kmRuntimeUse(0x8052A954);
 typedef void (*LoadArchivesFunc)(ArchivesHolder*, const char*, EGG::Heap*, EGG::Heap*, u32*);
 static LoadArchivesFunc const RealLoadArchives = reinterpret_cast<LoadArchivesFunc>(kmRuntimeAddr(0x8052A954));
 
-//the kart select menus load their allkart archive into kartModelsHolders[hud]
-static u8 HudForMenuArchive(const ArchiveMgr* mgr, const ArchivesHolder* holder) {
-    if(mgr == nullptr || holder == nullptr) return 4; //out of range: leave the path alone
-    const u8* base = reinterpret_cast<const u8*>(mgr->kartModelsHolders);
+//race kart archives are mounted from a job context path buffer of this size (mkw-pal.c strncpy 0x40)
+static const u32 RACE_PATH_CAPACITY = 0x40;
+
+//which race player a kart archive holder belongs to, in either holder array; NO_HOLDER if neither
+#define NO_HOLDER 0xFF
+static u8 PlayerIdForKartArchive(const ArchiveMgr* mgr, const ArchivesHolder* holder) {
+    if(mgr == nullptr || holder == nullptr) return NO_HOLDER;
     const u8* given = reinterpret_cast<const u8*>(holder);
-    if(given < base) return 4;
-    const u32 offset = static_cast<u32>(given - base);
-    if(offset % sizeof(ArchivesHolder) != 0) return 4;
-    const u32 hud = offset / sizeof(ArchivesHolder);
-    return hud < 4 ? static_cast<u8>(hud) : 4;
+    const u8* base = reinterpret_cast<const u8*>(mgr->kartModelsHolders);
+    const u32 arraySize = sizeof(mgr->kartModelsHolders);
+    if(given >= base && given < base + arraySize) {
+        const u32 offset = static_cast<u32>(given - base);
+        if(offset % sizeof(ArchivesHolder) == 0) return static_cast<u8>(offset / sizeof(ArchivesHolder));
+    }
+    const u8* base2 = reinterpret_cast<const u8*>(mgr->kartModelsHolders2);
+    if(given >= base2 && given < base2 + arraySize) {
+        const u32 offset = static_cast<u32>(given - base2);
+        if(offset % sizeof(ArchivesHolder) == 0) return static_cast<u8>(offset / sizeof(ArchivesHolder));
+    }
+    return NO_HOLDER;
 }
 
-//substitutes the styled archive path into menu allkart loads; anything else loads vanilla
-static void MenuArchiveLoadHook(ArchivesHolder* holder, char* path, EGG::Heap* mountHeap, EGG::Heap* dumpHeap,
+static bool StartsWith(const char* path, const char* prefix) {
+    return strncmp(path, prefix, strlen(prefix)) == 0;
+}
+
+//menu archives live in the first holder array only, one per local player
+static void MenuArchivePathHook(char* path, u8 hud) {
+    if(!StartsWith(path, "Scene/Model/Kart/")) return;
+    if(MenuPathIsBattle(path)) return;
+    const u8 style = menuBoundStyle[hud] & 3;
+    //a stale bound style can never leak a styled path while custom archives are off
+    if(style == 0 || !CustomArchivesEnabled()) return;
+    u32 character = 0;
+    if(!MenuPathCharacter(path, character) || !CharacterStyleArchiveExists(character, style)) return;
+    const char* postfix = CharacterStylePostfix(character, style);
+    if(postfix != nullptr) snprintf(path, 128, "Scene/Model/Kart/%s-allkart", postfix);
+}
+
+//every kart archive the game mounts passes here, for the menus and for the race
+static void KartArchiveLoadHook(ArchivesHolder* holder, char* path, EGG::Heap* mountHeap, EGG::Heap* fileHeap,
     u32* size) {
     ArchiveMgr* mgr = ArchiveMgr::sInstance;
-    const u8 hud = HudForMenuArchive(mgr, holder);
-    if(mgr != nullptr && path != nullptr && hud < 4 && !MenuPathIsBattle(path)) {
-        const u8 style = menuBoundStyle[hud] & 3;
-        //custom archives off: never substitute a styled path
-        if(style != 0 && CustomArchivesEnabled()) {
-            u32 character = 0;
-            if(MenuPathCharacter(path, character) && CharacterStyleArchiveExists(character, style)) {
-                const char* postfix = CharacterStylePostfix(character, style);
-                if(postfix != nullptr) {
-                    snprintf(path, 128, "Scene/Model/Kart/%s-allkart", postfix);
-                }
+    if(mgr != nullptr && path != nullptr) {
+        const u8 playerId = PlayerIdForKartArchive(mgr, holder);
+        if(playerId != NO_HOLDER) {
+            if(StartsWith(path, "Race/Kart/")) {
+                RewriteRaceArchivePath(path, playerId, RACE_PATH_CAPACITY);
+            }
+            else if(playerId < 4 && holder == &mgr->kartModelsHolders[playerId]) {
+                MenuArchivePathHook(path, playerId);
             }
         }
     }
-    RealLoadArchives(holder, path, mountHeap, dumpHeap, size);
+    RealLoadArchives(holder, path, mountHeap, fileHeap, size);
 }
-kmCall(0x805411b8, MenuArchiveLoadHook);
-kmCall(0x80541FB8, MenuArchiveLoadHook);
+kmCall(0x805411b8, KartArchiveLoadHook);
+kmCall(0x80541FB8, KartArchiveLoadHook);
 //sync variant loader's load call (same register convention)
-kmCall(0x80542198, MenuArchiveLoadHook);
+kmCall(0x80542198, KartArchiveLoadHook);
+//job 5 (the kart archives) ends in a tail branch, so this one must stay a branch
+kmBranch(0x80540084, KartArchiveLoadHook);
 
 //the styled menu archives are larger than the vanilla ones, so the loaders get a bigger heap
 kmRuntimeUse(0x80226AC8);
@@ -311,52 +339,6 @@ static EGG::ExpHeap* ExpHeapCreateHook(int size, EGG::Heap* parent, u16 flags) {
 kmCall(0x80542304, ExpHeapCreateHook);
 kmCall(0x8054233c, ExpHeapCreateHook);
 
-//---- driver visibility across a reload ----
-
-//a reload hides the driver until the styled models are locked again
-static void ShowDriver(u8 hud) {
-    MenuDriverModelMgr* drivers = DriverModels();
-    if(drivers == nullptr) return;
-    MenuDriverModel* driver = drivers->players[hud].playerModel;
-    if(driver != nullptr && driver->model != nullptr) driver->model->bitfield |= DRIVER_MODEL_VISIBLE;
-    drivers->players[hud].isVisible = true;
-}
-
-//stops the old on-kart anms and binds the stable charSel transformator
-static void HideDriverForReload(MenuDriverModelMgr* drivers, u8 hud) {
-    MenuDriverModel* driver = drivers->players[hud].playerModel;
-    driver->onKartTransformator = nullptr;
-    driver->SwitchState(hud, static_cast<MenuDriverModel::State>(MENU_DRIVER_STATE_CHARSEL));
-    drivers->players[hud].isVisible = false;
-    driver->model->ToggleVisible(false);
-    driver->model->bitfield &= ~DRIVER_MODEL_VISIBLE;
-}
-
-//a reload that will never finish must not leave the driver hidden
-static void AbortMenuReload(u8 hud) {
-    ShowDriver(hud);
-    menuReloadOutstanding[hud] = false;
-    iconsRebindPending = false;
-}
-
-//restores in the same frame as the rebuild, which ends with prepareDriverOnKartAnms
-static void FinishMenuReload(u8 hud) {
-    ShowDriver(hud);
-    MenuDriverModelMgr* drivers = DriverModels();
-    if(drivers == nullptr) return;
-    MenuDriverModel* driver = drivers->players[hud].playerModel;
-    if(driver != nullptr && driver->onKartTransformator != nullptr && KartSelectTopPage() != nullptr) {
-        driver->SwitchState(hud, static_cast<MenuDriverModel::State>(MENU_DRIVER_STATE_ONKART));
-    }
-    menuReloadOutstanding[hud] = false;
-}
-
-static void PrepareDriverOnKartAnmsHook(MenuDriverModelMgr* mgr, u32 hud) {
-    RealPrepareDriverOnKartAnms(mgr, hud);
-    if(hud < 4 && menuReloadOutstanding[hud]) FinishMenuReload(static_cast<u8>(hud));
-}
-kmCall(0x80832ea4, PrepareDriverOnKartAnmsHook);
-
 //---- vehicle row icons ----
 
 static bool IsVehicleIconButton(UIControl* control) {
@@ -367,8 +349,13 @@ static bool IsVehicleIconButton(UIControl* control) {
     return static_cast<LayoutUIControl*>(control)->layout.GetPaneByName("hatena") != nullptr;
 }
 
-//re-binds the kart select row icons and reports whether every one of them is bound
-static bool PollVehicleSelectIcons(bool rebind) {
+enum IconWalk {
+    ICON_CLEAR_LATCH, //a reload frees the icon textures, so the game has to bind them again
+    ICON_CHECK_BOUND
+};
+
+//walks every vehicle icon of the kart select rows, clearing or reading their bind latch
+static bool WalkVehicleSelectIcons(IconWalk walk) {
     Page* top = KartSelectTopPage();
     if(top == nullptr) return true;
     bool allBound = true;
@@ -383,12 +370,9 @@ static bool PollVehicleSelectIcons(bool rebind) {
             for(u32 b = 0; b < buttons.controlCount; ++b) {
                 UIControl* button = buttons.GetControl(b);
                 if(button == nullptr || !IsVehicleIconButton(button)) continue;
-                if(rebind) {
-                    const u8 bound = RealButtonBindTexture(button);
-                    //0 lets the game's OnUpdate re-bind the button once its icon has streamed in
-                    *(reinterpret_cast<u8*>(button) + BUTTON_BOUND_FLAG) = bound;
-                }
-                if(*(reinterpret_cast<u8*>(button) + BUTTON_BOUND_FLAG) == 0) allBound = false;
+                u8* latch = reinterpret_cast<u8*>(button) + ICON_BOUND_LATCH;
+                if(walk == ICON_CLEAR_LATCH) *latch = 0;
+                else if(*latch == 0) allBound = false;
             }
         }
     }
@@ -397,71 +381,67 @@ static bool PollVehicleSelectIcons(bool rebind) {
 
 //---- per-frame driver ----
 
-//finishes in-flight reloads on every page, so one that survives a page change still restores its driver
-static void ProcessMenuRebindRestore() {
-    MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
-    const bool modelsLoaded = modelMgr != nullptr && modelMgr->driverModels != nullptr
-        && modelMgr->kartModels != nullptr;
-    for(u8 hud = 0; hud < 4; ++hud) {
-        if(!menuReloadOutstanding[hud] || !modelsLoaded) continue;
-        const MenuArchiveLoader* loader = MenuLoaderForHud(hud);
-        if(loader == nullptr) continue;
-        //no request in flight: abandon the restore
-        if(loader->state == LOADER_HAS_REQUEST) {
-            AbortMenuReload(hud);
-            continue;
-        }
-        if(loader->state != LOADER_HAS_LOADED || !modelMgr->kartModels->players[hud].isLocked) continue;
-        FinishMenuReload(hud);
-    }
-
-    //no reload to settle: drop the one-shot rebind flag again
-    if(!iconsRebindPending) {
-        iconsRebound = false;
+//waits for the game's own per-frame rebuild, then lets it bind the row icons again
+static void ProcessIconRebind() {
+    if(!iconRebindPending) {
+        iconLatchesCleared = false;
         return;
     }
-    //re-link the row icons once the regenerated models are locked, then keep gating style input until they are bound
-    if(!modelsLoaded || !modelMgr->kartModels->players[0].isLocked) return;
+    //MenuKartModelMgr::Load locks the models once the archive is mounted and the rebuild is done
+    const MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
+    if(modelMgr == nullptr || modelMgr->kartModels == nullptr) return;
     const MenuArchiveLoader* loader = MenuLoaderForHud(0);
     if(loader == nullptr || loader->state != LOADER_HAS_LOADED) return;
-    if(!iconsRebound) {
-        PollVehicleSelectIcons(true);
-        iconsRebound = true;
+    const MenuKartModelMgr::Player& slot = modelMgr->kartModels->players[0];
+    if(slot.hasLoadRequest || !slot.isLocked) return;
+
+    if(!iconLatchesCleared) {
+        //the game binds a row icon in OnUpdate only while its latch is clear, and never clears it itself
+        WalkVehicleSelectIcons(ICON_CLEAR_LATCH);
+        iconLatchesCleared = true;
     }
-    if(PollVehicleSelectIcons(false)) {
-        iconsRebindPending = false;
-        iconsRebound = false;
+    if(WalkVehicleSelectIcons(ICON_CHECK_BOUND)) {
+        iconRebindPending = false;
+        iconLatchesCleared = false;
     }
 }
 
 //requests a reload whenever the style to load no longer matches the bound one
 static void ProcessMenuRebindRequests() {
-    ArchiveMgr* archiveMgr = ArchiveMgr::sInstance;
+    const SectionMgr* mgr = SectionMgr::sInstance;
+    if(mgr == nullptr || mgr->curSection == nullptr) return;
+    Pages::ModelRenderer* renderer = mgr->curSection->Get<Pages::ModelRenderer>();
     MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
-    MenuDriverModelMgr* drivers = DriverModels();
-    if(archiveMgr == nullptr || drivers == nullptr || modelMgr == nullptr || modelMgr->kartModels == nullptr) return;
-    const MenuArchiveLoader* loader = MenuLoaderForHud(0);
+    MenuDriverModel* driver = DriverModelForHud(0);
+    if(renderer == nullptr || driver == nullptr || modelMgr == nullptr || modelMgr->kartModels == nullptr) return;
     const s32 character = LoadedCharacter(0);
-    if(loader == nullptr || loader->mountHeap == nullptr || character < 0) return;
-    if(drivers->players[0].playerModel == nullptr) return;
+    if(character < 0) return;
     //missing styles and disabled custom archives load vanilla; reload when the loaded archive differs
     const u8 loadStyle = BoundMenuStyle(static_cast<u32>(character), playstyles[0] & 3);
-    if(loadStyle == menuBoundStyle[0] || iconsRebindPending) return;
+    if(loadStyle == menuBoundStyle[0] || iconRebindPending) return;
 
-    HideDriverForReload(drivers, 0);
-    menuReloadOutstanding[0] = true;
-    modelMgr->ResetKartModels(0);
-    if(!RequestMenuReload(archiveMgr, 0, static_cast<u32>(character), static_cast<u32>(loader->mode))) {
-        AbortMenuReload(0);
+    //the reload frees the archive heap on the task thread, so move the driver off its on-kart
+    //transformator, which lives in that heap, before asking for it
+    ModelTransformator* onKartTransformator = driver->onKartTransformator;
+    driver->onKartTransformator = nullptr;
+    driver->SwitchState(0, MenuDriverModel::MENUDRIVERMODEL_STATE_ONCHARSELECT);
+
+    //the game's own entry point keeps the page params in sync, so the kart is re-selected afterwards
+    LoadKartModelsByCharacter(renderer, 0, static_cast<CharacterId>(character));
+    if(!modelMgr->kartModels->players[0].hasLoadRequest) {
+        //it declined, e.g. a request is already in flight: leave the driver on its kart
+        driver->onKartTransformator = onKartTransformator;
+        driver->SwitchState(0, MenuDriverModel::MENUDRIVERMODEL_STATE_ONKARTSELECT);
         return;
     }
+
     menuBoundStyle[0] = loadStyle;
-    iconsRebindPending = true;
+    iconRebindPending = true;
 }
 
 void MenuStyleUpdate() {
-    //the restore poll runs on every page so a reload can never leave a driver hidden
-    ProcessMenuRebindRestore();
+    //runs on every page so a reload that survives a page change still settles its icons
+    ProcessIconRebind();
     //local multiplayer picks its styles on the PlaystyleSelect page: no menu asset switching there
     if(UsesPlaystyleSelectPage()) return;
     const SectionMgr* mgr = SectionMgr::sInstance;

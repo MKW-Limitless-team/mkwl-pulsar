@@ -26,6 +26,9 @@ const char* CharacterStylePostfix(u32 character, u32 style);
 //true when /Scene/Model/Kart/<characterName>-<style>-allkart.szs exists
 bool CharacterStyleArchiveExists(u32 character, u32 style);
 
+//rewrites "Race/Kart/<vehicle>..." in place to that player's styled archive; true when it changed
+bool RewriteRaceArchivePath(char* path, u8 playerId, u32 capacity);
+
 //sets playstyles[hud] and latches the menu archive that the new style needs
 void NoteComboRandomisedStyle(u8 hud, u32 character, u8 style);
 

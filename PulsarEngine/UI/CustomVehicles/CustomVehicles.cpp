@@ -98,53 +98,8 @@ void RandomiseLocalPlaystyles() {
     }
 }
 
-//---- race model loading ----
 
-//style to use for a race player; vanilla when unset, disabled or the archive is missing
-static u8 RaceStyleForPlayer(u8 playerId, u32 kart, CharacterId character) {
-    const u8 style = StyleForPlayer(playerId);
-    if(style == 0 || !CustomArchivesEnabled()) return 0;
-    return VehicleStyleArchiveExists(kart, style, character) ? style : 0;
-}
-
-typedef ArchivesHolder* (*LoadKartArchiveFunc)(ArchiveMgr*, u8, KartId, CharacterId, u32, u32, EGG::Heap*, EGG::Heap*);
-kmRuntimeUse(0x80540e3c);
-kmRuntimeUse(0x80540f90);
-static LoadKartArchiveFunc const RealLoadKartArchive =
-    reinterpret_cast<LoadKartArchiveFunc>(kmRuntimeAddr(0x80540e3c));
-static LoadKartArchiveFunc const RealLoadBackupKartArchive =
-    reinterpret_cast<LoadKartArchiveFunc>(kmRuntimeAddr(0x80540f90));
-
-//the archives are named "<vehicleName>-<style>", so patching the name makes the game build that path
-static ArchivesHolder* LoadKartArchiveWithStyle(LoadKartArchiveFunc load, ArchiveMgr* archiveMgr, u8 playerId,
-    KartId kart, CharacterId character, u32 color, u32 type, EGG::Heap* decompressedHeap, EGG::Heap* archiveHeap) {
-    const u8 style = RaceStyleForPlayer(playerId, kart, character);
-    const char** entry = &VEHICLE_NAMES[kart];
-    const char* vanillaName = *entry;
-    if(style != 0) *entry = VehicleStylePostfix(kart, style);
-    ArchivesHolder* holder = load(archiveMgr, playerId, kart, character, color, type, decompressedHeap, archiveHeap);
-    *entry = vanillaName;
-    return holder;
-}
-
-static ArchivesHolder* LoadKartArchiveHook(ArchiveMgr* archiveMgr, u8 playerId, KartId kart, CharacterId character,
-    u32 color, u32 type, EGG::Heap* decompressedHeap, EGG::Heap* archiveHeap) {
-    return LoadKartArchiveWithStyle(RealLoadKartArchive, archiveMgr, playerId, kart, character,
-        color, type, decompressedHeap, archiveHeap);
-}
-kmCall(0x805540f4, LoadKartArchiveHook);
-
-static ArchivesHolder* LoadBackupKartArchiveHook(ArchiveMgr* archiveMgr, u8 playerId, KartId kart,
-    CharacterId character, u32 color, u32 type, EGG::Heap* decompressedHeap, EGG::Heap* archiveHeap) {
-    return LoadKartArchiveWithStyle(RealLoadBackupKartArchive, archiveMgr, playerId, kart, character,
-        color, 0, decompressedHeap, archiveHeap);
-}
-kmCall(0x80554198, LoadBackupKartArchiveHook);
-
-//A TT-vs-ghost kart load reuses one mountHeap for the DVD and the SD archive, so the second
-//allocation comes off a poisoned free list and decodeSZS writes to garbage (DSI, R00=ma_bike's
-//0x55D80 size). Kart archives decode onto a root heap instead: it lives for the whole process,
-//while the system heap is the one the game recycles between races.
+//kart archives decode onto a root heap, which survives between races, unlike the system heap
 static EGG::Heap* KartArchiveRootHeap(u32 requiredSize) {
     EGG::Heap* systemHeap = nullptr;
     if(System::sInstance != nullptr) systemHeap = static_cast<EGG::Heap*>(System::sInstance->heap);
