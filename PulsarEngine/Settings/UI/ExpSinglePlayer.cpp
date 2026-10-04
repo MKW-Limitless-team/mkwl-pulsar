@@ -104,27 +104,23 @@ kmCall(0x8084ef68, SetDistanceFunc);
 void OnButtonSelect(Pages::SinglePlayer* page, PushButton& button, u32 hudSlotId) {
     const s32 id = button.buttonId;
     u32 count = page->externControlCount;
-    if(count > 5 && (id == 1 || id > 3)) {
-
-        u32 bmgId;
-        if(id == count - 1) bmgId = BMG_SETTINGSBUTTON_BOTTOM;
-        else {
-            button.buttonId = 1;
-            page->Pages::SinglePlayer::OnExternalButtonSelect(button, hudSlotId);
-            button.buttonId = id;
-            bmgId = BMG_TT_MODE_BOTTOM_SINGLE;
-            const System* system = System::sInstance;
-            switch(page->externControlCount) {
-                case(6):
-                    if(id > 3) {
-                        if(system->GetInfo().Has200cc()) bmgId += 1;
-                        else bmgId += 2;
-                    }
-                    break;
-                case(8):
-                    if(id > 3) bmgId = bmgId + id - 3;
-                    break;
-            }
+    if(id == count - 1) page->bottomText->SetMessage(BMG_SETTINGSBUTTON_BOTTOM);
+    else if(count > 5 && (id == 1 || id > 3)) {
+        button.buttonId = 1;
+        page->Pages::SinglePlayer::OnExternalButtonSelect(button, hudSlotId);
+        button.buttonId = id;
+        u32 bmgId = BMG_TT_MODE_BOTTOM_SINGLE;
+        const System* system = System::sInstance;
+        switch(count) {
+            case(6):
+                if(id > 3) {
+                    if(system->GetInfo().Has200cc()) bmgId += 1;
+                    else bmgId += 2;
+                }
+                break;
+            case(8):
+                if(id > 3) bmgId = bmgId + id - 3;
+                break;
         }
         page->bottomText->SetMessage(bmgId);
     }

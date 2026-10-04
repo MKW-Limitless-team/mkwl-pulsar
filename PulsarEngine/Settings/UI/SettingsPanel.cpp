@@ -221,7 +221,7 @@ const ut::detail::RuntimeTypeInfo* SettingsPanel::GetRuntimeTypeInfo() const {
 
 void SettingsPanel::OnExternalButtonSelect(PushButton& button, u32 r5) {
     u32 bmgId = BMG_SETTINGS_BOTTOM; //default "save"
-    const u32 id = button.buttonId;
+    const s32 id = button.buttonId;
 
     if(id == 1) bmgId += 1 + this->GetNextBMGOffset(1);
     else if(id == 2)  bmgId += 1 + this->GetNextBMGOffset(-1);

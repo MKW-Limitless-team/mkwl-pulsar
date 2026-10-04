@@ -383,8 +383,8 @@
 
   8A00  = \u{f041}\u{f034}
   8A01  = \u{f043}\u{f030}
-  8A02  = \u{f059}\u{f05a}
-  8A03  = \u{f05b}\u{f05c}
+  8A02  = \u{f05b}\u{f05c}
+  8A03  = \u{f059}\u{f05a}
 
   2935  = Base Style
   2936  = Lightweight Style

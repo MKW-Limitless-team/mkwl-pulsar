@@ -32,15 +32,14 @@ kmWritePointer(0x808D9D8C, CreateExternalControls);
 
 void OnButtonSelect(Pages::MultiPlayer* page, PushButton& button, u32 hudSlotId) {
     const s32 id = button.buttonId;
-    u32 bmgId;
-    if(id == 2) bmgId = BMG_SETTINGSBUTTON_BOTTOM;
-    else bmgId = 0xbed + id; 
-    page->bottomText->SetMessage(bmgId);
+    if(id == page->externControlCount - 1) page->bottomText->SetMessage(BMG_SETTINGSBUTTON_BOTTOM);
+    else if(id < 0) page->Pages::MultiPlayer::OnExternalButtonSelect(button, hudSlotId);
+    else page->bottomText->SetMessage(0xbed + id);
 }
 kmWritePointer(0x808D9D6C, &OnButtonSelect);
 
 void OnButtonClick(Pages::MultiPlayer* page, PushButton& button, u32 hudSlotId) {
-    const u32 id = button.buttonId;
+    const s32 id = button.buttonId;
     if(id == page->externControlCount - 1) {
         ExpSection::GetSection()->GetPulPage<SettingsPanel>()->prevPageId = PAGE_MULTIPLAYER_MENU;
         page->nextPageId = static_cast<PageId>(SettingsPanel::id);

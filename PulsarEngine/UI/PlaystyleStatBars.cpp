@@ -295,9 +295,9 @@ static u32 ControllerToBmgId(ControllerType type) {
     switch(type) {
         case WHEEL:    return BMG_BUTTON_WHEEL;
         case NUNCHUCK: return BMG_BUTTON_NUNCHUK;
-        case CLASSIC:  return BMG_BUTTON_GCN;
+        case CLASSIC:  return BMG_BUTTON_CLASSIC;
         case GCN:
-        default:       return BMG_BUTTON_CLASSIC;
+        default:       return BMG_BUTTON_GCN;
     }
 }
 

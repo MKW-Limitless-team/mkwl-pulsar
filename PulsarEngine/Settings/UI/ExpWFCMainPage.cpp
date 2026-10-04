@@ -110,8 +110,8 @@ void ExpWFCModeSel::OnModeButtonSelect(PushButton& modeButton, u32 hudSlotId) {
 }
 
 void ExpWFCModeSel::OnModeButtonClick(PushButton& modeButton, u32 hudSlotId) {
-    const u32 prevId = modeButton.buttonId;
-    this->lastClickedButton = prevId;
+    const s32 prevId = modeButton.buttonId;
+    this->lastClickedButton = static_cast<u32>(prevId);
     bool isOTT = false;
     if(prevId == ottButtonId) {
         isOTT = true;
