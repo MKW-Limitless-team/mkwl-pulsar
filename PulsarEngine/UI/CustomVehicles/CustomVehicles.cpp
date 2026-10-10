@@ -1,18 +1,12 @@
 #include <UI/CustomVehicles/CustomVehicles.hpp>
 #include <UI/CustomVehicles/StyleArchives.hpp>
 #include <PulsarSystem.hpp>
-#include <MarioKartWii/Archive/ArchiveMgr.hpp>
-#include <MarioKartWii/Archive/ArchiveFile.hpp>
 #include <MarioKartWii/Race/RaceData.hpp>
 #include <MarioKartWii/RKNet/RKNetController.hpp>
 #include <MarioKartWii/System/Random.hpp>
 #include <MarioKartWii/UI/Section/SectionMgr.hpp>
-#include <core/egg/Decomp.hpp>
-#include <core/egg/mem/Heap.hpp>
 #include <core/RK/RKSystem.hpp>
 #include <core/rvl/OS/OS.hpp>
-#include <core/rvl/os/OSCache.hpp>
-#include <include/c_string.h>
 #include <runtimeWrite.hpp>
 
 namespace Pulsar {
@@ -98,47 +92,6 @@ void RandomiseLocalPlaystyles() {
     }
 }
 
-
-//kart archives decode onto a root heap, which survives between races, unlike the system heap
-static EGG::Heap* KartArchiveRootHeap(u32 requiredSize) {
-    EGG::Heap* systemHeap = nullptr;
-    if(System::sInstance != nullptr) systemHeap = static_cast<EGG::Heap*>(System::sInstance->heap);
-    EGG::Heap* candidates[3];
-    candidates[0] = RKSystem::mInstance.EGGRootMEM2;
-    candidates[1] = RKSystem::mInstance.EGGRootMEM1;
-    candidates[2] = systemHeap;
-    for(u32 i = 0; i < 3; ++i) {
-        if(candidates[i] == nullptr) continue;
-        if(candidates[i]->getAllocatableSize(0x20) >= requiredSize) return candidates[i];
-    }
-    return nullptr;
-}
-
-//kart-only scoping, and MKW formats these paths without a leading slash, so the prefix must match
-static bool IsRaceKartArchivePath(const char* path) {
-    static const char prefix[] = "Race/Kart/";
-    return path != nullptr && strncmp(path, prefix, sizeof(prefix) - 1) == 0;
-}
-
-static void ArchiveFileDecompressHook(ArchiveFile* file, const char* path, EGG::Heap* heap,
-    EGG::Archive::FileInfo* info) {
-    u8* compressed = static_cast<u8*>(file->compressedArchive);
-    u32 size = EGG::Decomp::getExpandSize(compressed);
-    EGG::Heap* target = heap;
-    //kart archives decode onto a root heap; every other archive keeps the caller's mountHeap
-    if(IsRaceKartArchivePath(path)) {
-        EGG::Heap* rootHeap = KartArchiveRootHeap(size);
-        if(rootHeap != nullptr) target = rootHeap;
-    }
-    u8* dest = EGG::Heap::alloc<u8>(size, 0x20, target);
-    EGG::Decomp::decodeSZS(compressed, dest);
-    file->archiveSize = size;
-    file->rawArchive = dest;
-    file->archiveHeap = target;
-    OS::DCStoreRange(dest, size);
-    file->status = ARCHIVE_STATUS_DECOMPRESSED;
-}
-kmBranch(0x80519508, ArchiveFileDecompressHook);
 
 extern "C" void SetModelColorsImpl(void*, void*);
 

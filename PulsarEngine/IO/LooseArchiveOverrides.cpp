@@ -20,6 +20,7 @@
 #include <include/c_stdio.h>
 #include <include/c_stdlib.h>
 #include <include/c_string.h>
+#include <MarioKartWii/UI/Text/FontMgr.hpp>
 #include <MarioKartWii/Archive/ArchiveFile.hpp>
 #include <core/egg/Archive.hpp>
 #include <core/egg/Decomp.hpp>
@@ -202,6 +203,8 @@ static bool sOverrideCacheStateInitialized = false;
 static int sCachedLooseOverridesEnabled = 0;
 static char sCachedModFolder[OVERRIDE_MAX_PATH] = "";
 static char sLastUIArchiveBase[32] = "";
+static bool sPendingSettingChange = false;
+static bool sPendingBootArchiveReload = false;
 static LooseOverrideScratch sLooseOverrideScratch = {};
 
 static int AreLooseArchiveOverridesEnabled() {
@@ -1135,6 +1138,8 @@ static void InvalidateOverrideIndices() {
     sOverrideIndicesAttempted = false;
     sHasWholeFileOverrides = false;
     ResetModsRootCache();
+    //the initial "" -> real modFolder transition at boot is not a user-facing change
+    if (sCachedModFolder[0] != '\0') sPendingSettingChange = true;
 }
 
 static void GetCurrentModFolder(char *outPath, u32 outSize) {
@@ -1157,7 +1162,6 @@ static void RefreshOverrideCacheState() {
         CopyPath(sCachedModFolder, sizeof(sCachedModFolder), modFolder);
         sCachedLooseOverridesEnabled = looseOverridesEnabled;
         sOverrideCacheStateInitialized = true;
-        OS::Report("[Pulsar] RefreshOverrideCacheState: initialized modFolder='%s', setting=%d\n", modFolder, looseOverridesEnabled);
         return;
     }
 
@@ -1165,7 +1169,6 @@ static void RefreshOverrideCacheState() {
         InvalidateOverrideIndices();
         CopyPath(sCachedModFolder, sizeof(sCachedModFolder), modFolder);
         sCachedLooseOverridesEnabled = looseOverridesEnabled;
-        OS::Report("[Pulsar] RefreshOverrideCacheState: updated modFolder='%s', setting=%d\n", modFolder, looseOverridesEnabled);
     }
 }
 
@@ -1190,9 +1193,123 @@ static EGG::Heap *GetOverridesHeap() {
     return static_cast<EGG::Heap *>(system->heap);
 }
 
+extern "C" {
+    void Init__11FontManager(Text::FontMgr *self);
+    extern Text::FontMgr *sInstance__11FontManager;
+    extern u32 sInstance__10ArchiveMgr;
+// ResourceManager::load(self, index, heap, nameOverride): arg3 is mount heap task passes to Decompress (stored rm+0x384); arg4=0 uses table[3].
+    void *Load__Q26ResourceManagerFPcv(void *self, u32 index, EGG::Heap *heap, const char *nameOverride);
+    void UnmountSceneArchive__Q26ResourceManagerFv(void *self, s32 index);
+    u32 HolderIsLoaded__Q26ResourceManagerFv(void *holder);
+    void CreateScene__Q23EGG8SceneManagerFv(void *self, u32 sceneId, void *parent);
+}
+
+// Main-thread wrapper around changeScene: loads archives async on the task thread, which spins
+// with interrupts disabled, so this may not call load() from inside an archive hook.
+static EGG::Heap *GetPersistentOverrideHeap(u32 requiredSize);
+
+static void ReloadFontArchiveOnce() {
+    Text::FontMgr *fontMgr = sInstance__11FontManager;
+    void *rm = reinterpret_cast<void *>(sInstance__10ArchiveMgr);
+    if (fontMgr == nullptr || rm == nullptr) {
+        OS::Report("[Pulsar] Font reload skipped (fontMgr=%p rm=%p)\n",
+            static_cast<void *>(fontMgr), rm);
+        return;
+    }
+
+// Font.szs is slot-3 entry of archiveHolders array (rm+0x4); unregisterHolder targets +0x2a8, cannot reach.
+// array at +0x2a8, so it cannot reach this slot.
+void **holders = *reinterpret_cast<void ***>(reinterpret_cast<u8 *>(rm) + 0x4);
+    void *fontHolder = holders[3];
+
+    ArchiveFile *files = nullptr;
+    u16 count = 0;
+    if (fontHolder != nullptr) {
+        files = *reinterpret_cast<ArchiveFile **>(reinterpret_cast<u8 *>(fontHolder) + 0x4);
+        count = *reinterpret_cast<u16 *>(reinterpret_cast<u8 *>(fontHolder) + 0x8);
+    }
+
+// Pick reload heap before teardown; if none fits leave Font.szs mounted. Prefer sCurrentHeap (task default), then MEM2/MEM1 roots, then ovrHeap. ArchiveHeap not queried (may be destroyed scene).
+    // belong to a scene that has already been destroyed, and getAllocatableSize() is virtual.
+const u32 kFontArchiveHeapBytes = 0x400000;
+    HeapCandidate candidates[4];
+    candidates[0].heap = EGG::Heap::sCurrentHeap;
+    candidates[0].reclaimedBytes = 0;
+    candidates[1].heap = RKSystem::mInstance.EGGRootMEM2;
+    candidates[1].reclaimedBytes = 0;
+    candidates[2].heap = RKSystem::mInstance.EGGRootMEM1;
+    candidates[2].reclaimedBytes = 0;
+    candidates[3].heap = GetOverridesHeap();
+    candidates[3].reclaimedBytes = 0;
+    EGG::Heap *targetHeap = FindHeapWithSpace(candidates, 4, kFontArchiveHeapBytes);
+    if (targetHeap == nullptr) {
+        OS::Report("[Pulsar] Font reload skipped: no heap has 0x%X bytes for Font.szs\n",
+            kFontArchiveHeapBytes);
+        return;
+    }
+
+// The font entry can have archiveHeap == nullptr when its boot load used the LoadUncompressed path, so EGG::Archive::Unmount (which dereferences archiveHeap) is unsafe. Tear the entry down field-by-field instead, freeing each buffer via its recorded heap or findContainHeap.
+    for (u16 i = 0; i < count; ++i) {
+            ArchiveFile *f = files + i;
+
+        EGG::Archive *mounted = f->archive;
+        f->archive = nullptr;
+        if (mounted != nullptr) {
+            mounted->Unmount();
+        }
+
+        void *raw = f->rawArchive;
+        if (raw != nullptr) {
+            EGG::Heap *owner = (f->archiveHeap != nullptr) ? f->archiveHeap
+                                    : EGG::Heap::findContainHeap(raw);
+            if (owner != nullptr) EGG::Heap::free(raw, owner);
+        }
+
+        void *comp = f->compressedArchive;
+        if (comp != nullptr) {
+            EGG::Heap *owner = (f->dumpHeap != nullptr) ? f->dumpHeap
+                                    : EGG::Heap::findContainHeap(comp);
+            if (owner != nullptr) EGG::Heap::free(comp, owner);
+        }
+
+        f->dumpHeap = nullptr;
+        f->rawArchive = nullptr;
+        f->archiveSize = 0;
+        f->archiveHeap = nullptr;
+        f->compressedArchive = nullptr;
+        f->compressedArchiveSize = 0;
+        f->status = ARCHIVE_STATUS_NONE;
+    }
+
+// arg3 mount heap to Decompress; null= ApplyLooseOverrides bail, arg4=0 => table[3].
+    // (a non-zero arg4 is dereferenced directly at 805404a8).
+    void *reloaded = Load__Q26ResourceManagerFPcv(rm, 3, targetHeap, nullptr);
+    const u32 loadedAfter = (reloaded != nullptr) ? HolderIsLoaded__Q26ResourceManagerFv(reloaded) : 0;
+
+    if (loadedAfter == 0) {
+        // Init walks the mounted fonts; if none are mounted, ResFont::SetResource dereferences a
+        // null font resource. Leave the existing fonts in place and retry on the next transition.
+        OS::Report("[Pulsar] Font.szs reload failed; keeping existing fonts\n");
+        return;
+    }
+
+    EGG::Heap *previousHeap = EGG::Heap::sCurrentHeap;
+    EGG::Heap::sCurrentHeap = targetHeap;
+    Init__11FontManager(fontMgr);
+    EGG::Heap::sCurrentHeap = previousHeap;
+}
+
+static void CreateSceneWithFontReload(void *self, u32 sceneId, void *parent) {
+    if (sPendingBootArchiveReload) {
+        sPendingBootArchiveReload = false;
+        ReloadFontArchiveOnce();
+    }
+    CreateScene__Q23EGG8SceneManagerFv(self, sceneId, parent);
+}
+kmCall(0x8023b0c4, CreateSceneWithFontReload);
+
 static EGG::Heap *GetPersistentOverrideHeap(u32 requiredSize) {
-    // The index is persistent for the process lifetime, so prefer large root
-    // heaps over transient/archive-specific heaps. Falling back to the system
+// Prefer large root heaps (MEM2/MEM1) over transient; fall back to system heap rather than rebuild index.
     // heap is still better than rebuilding the index every archive load.
     HeapCandidate candidates[3];
     candidates[0].heap = RKSystem::mInstance.EGGRootMEM2;
@@ -1232,7 +1349,6 @@ static bool ModsRootExistsOnSD() {
     if (exists) {
         SetModsRootPath(modsPath);
     }
-    OS::Report("[Pulsar] ModsRootExistsOnSD: path='%s', exists=%d (ISFS::ReadDir=%d)\n", modsPath, exists, result);
     return exists;
 }
 
@@ -1337,7 +1453,6 @@ static bool ModsRootExists() {
         sModsRootPresent = false;
         sModsRootPath[0] = '\0';
         sModsRootFromDVD = false;
-        OS::Report("[Pulsar] ModsRootExists: setting OFF, no mods root\n");
         return false;
     }
 
@@ -1364,7 +1479,6 @@ static bool ModsRootExists() {
             SetModsRootPath(modsPath);
         }
     }
-    OS::Report("[Pulsar] ModsRootExists: sModsRootPresent=%d, fromDVD=%d, sModsRootPath='%s'\n", sModsRootPresent, sModsRootFromDVD, sModsRootPath);
     return sModsRootPresent;
 }
 
@@ -2186,10 +2300,8 @@ static void ScanModsDir(ScanBuildState &state, u32 maxTaggedCount, u32 maxWholeF
     if (!ModsRootExists()) return;
 
     if (sModsRootFromDVD) {
-        OS::Report("[Pulsar] ScanModsDir: scanning DVD FST path '%s'\n", sModsRootPath);
         ScanModsDirFromModsFolder(state, maxTaggedCount, maxWholeFileCount, maxBRSARCount);
     } else {
-        OS::Report("[Pulsar] ScanModsDir: scanning SD/ISFS path '%s'\n", sModsRootPath);
         ScanModsDirSD(state, maxTaggedCount, maxWholeFileCount, maxBRSARCount);
     }
 }
@@ -2698,8 +2810,6 @@ static void EnsureOverrideIndicesBuilt() {
     sOverrideDatabase = database;
     sActiveOverrideDatabase = &sOverrideDatabase;
     sHasWholeFileOverrides = (database.wholeFileEntries != nullptr && database.wholeFileCount > 0);
-    OS::Report("[Pulsar] EnsureOverrideIndicesBuilt: tagged=%u wholeFile=%u brsar=%u\n",
-               database.taggedCount, database.wholeFileCount, database.brsarCount);
 }
 
 static bool ResolveLooseBRSAROverride(u32 fileId, BRSAROverrideSlot *&outEntry, BRSAROverrideLayout &outLayout) {
@@ -3820,23 +3930,7 @@ bool ApplyLooseOverrides(const char *archiveBaseLower, u8 *&archiveBase, u32 &ar
     newSize = Align32(newSize);
 
     const u32 growth = (newSize > archiveSize) ? (newSize - archiveSize) : 0;
-    EGG::Heap *repackHeap = archiveHeap;
-
-    EGG::Heap *candidates[3];
-    candidates[0] = RKSystem::mInstance.EGGRootMEM2;
-    candidates[1] = RKSystem::mInstance.EGGRootMEM1;
-    candidates[2] = GetOverridesHeap();
-
-    // Prefer a roomier heap; source-heap growth stays capped.
-
-    for (u32 i = 0; i < 3; ++i) {
-        EGG::Heap *candidate = candidates[i];
-        if (candidate == nullptr || candidate == archiveHeap) continue;
-        const u32 available = candidate->getAllocatableSize(0x20);
-        if (available < newSize) continue;
-        repackHeap = candidate;
-        break;
-    }
+   EGG::Heap *repackHeap = archiveHeap;
 
     const bool allowSourceHeap = (growth <= kOverrideMaxGrowthOnSourceHeap);
     bool triedSourceHeap = false;
@@ -3846,10 +3940,6 @@ bool ApplyLooseOverrides(const char *archiveBaseLower, u8 *&archiveBase, u32 &ar
     u32 repackOrderCount = 0;
 
     if (repackHeap == archiveHeap && allowSourceHeap && compressedData != nullptr) {
-        // Same-heap repack is only safe when every file moves forward and no
-        // override shrinks after later files have been relocated. In that narrow
-        // case we can free the old archive, decompress the original SZS back into
-        // a new larger buffer on the same heap, and then move files downward from
         // highest original offset to lowest without clobbering unread data.
 
         memset(repackOffsets, 0, sizeof(u32) * nodeCount);
@@ -4111,6 +4201,7 @@ static void ArchiveFileLoadOverride(ArchiveFile *file, const char *path, EGG::He
 
     char normalizedPath[OVERRIDE_MAX_PATH];
     const char *requestedPath = path;
+
     if (path != nullptr) {
         const char *base = FindBasename(path);
         if (base != nullptr && strcmp(base, ".szs") == 0 && StartsWith(sLastUIArchiveBase, "/Scene/UI/")) {
@@ -4188,7 +4279,9 @@ static void ArchiveFileLoadOverride(ArchiveFile *file, const char *path, EGG::He
         if (isCompressed == 0) {
             file->rawArchive = file->compressedArchive;
             file->archiveSize = file->compressedArchiveSize;
-            file->archiveHeap = file->dumpHeap;
+            // dumpHeap is released once the archive is mounted, so it must not become the owning
+            // heap: ArchiveFile::Unmount dereferences archiveHeap whenever rawArchive is set.
+            file->archiveHeap = (file->dumpHeap != nullptr) ? file->dumpHeap : mountHeap;
             file->compressedArchive = nullptr;
             file->compressedArchiveSize = 0;
             file->dumpHeap = nullptr;
@@ -4217,9 +4310,71 @@ static void ArchiveFileLoadOverride(ArchiveFile *file, const char *path, EGG::He
 }
 kmBranch(0x80518e10, ArchiveFileLoadOverride);
 
+// Forward declarations for kart archive utilities (defined at end of file)
+static EGG::Heap* KartArchiveRootHeap(u32 requiredSize);
+static bool IsRaceKartArchivePath(const char* path);
+
+static void ArchiveFileDecompressHook(ArchiveFile* file, const char* path, EGG::Heap* heap,
+    EGG::Archive::FileInfo* info) {
+    u8* compressed = static_cast<u8*>(file->compressedArchive);
+    u32 size = EGG::Decomp::getExpandSize(compressed);
+    EGG::Heap* owner = heap;
+    if (owner == nullptr) {
+        owner = GetPersistentOverrideHeap(size);
+    }
+    EGG::Heap* target = owner;
+    if (IsRaceKartArchivePath(path)) {
+        EGG::Heap* rootHeap = KartArchiveRootHeap(size);
+        if (rootHeap != nullptr) target = rootHeap;
+    }
+    u8* dest = EGG::Heap::alloc<u8>(size, 0x20, target);
+    if (dest == nullptr) {
+        OS::Report("[Pulsar][OVR-DECOMP] '%s' alloc of 0x%X from %p failed, skipping decompress\n",
+                   path != nullptr ? path : "(null)", size, static_cast<void*>(target));
+        return;
+    }
+    EGG::Decomp::decodeSZS(compressed, dest);
+
+    char archiveBaseLower[OVERRIDE_MAX_NAME];
+    archiveBaseLower[0] = '\0';
+    if (ShouldApplyLooseOverrides(path, archiveBaseLower, sizeof(archiveBaseLower))) {
+        EGG::Heap* archiveHeap = target;
+        u32 applied = 0, patched = 0, missing = 0;
+        ApplyLooseOverrides(archiveBaseLower, dest, size, target, archiveHeap, &applied, &patched, &missing, compressed);
+        target = archiveHeap;
+        if (applied > 0) {
+            OS::Report("[Pulsar] Loose override applied to '%s': patched=%u missing=%u\n",
+                       archiveBaseLower, patched, missing);
+        }
+    }
+
+    file->archiveSize = size;
+    file->rawArchive = dest;
+    // Track whichever heap actually owns dest - a repack may have relocated the buffer. The game
+    // records the allocation heap at ArchiveFile+0x10 (archiveHeap), so future teardowns free it
+    // correctly.
+    file->archiveHeap = target;
+    OS::DCStoreRange(dest, size);
+    file->status = ARCHIVE_STATUS_DECOMPRESSED;
+}
+kmBranch(0x80519508, ArchiveFileDecompressHook);
+
 bool AreLooseArchiveOverridesEnabledForDebug() {
     RefreshOverrideCacheState();
     return AreLooseArchiveOverridesEnabled();
+}
+
+bool ConsumeLooseOverrideSettingChange() {
+    RefreshOverrideCacheState();
+    if (!sPendingSettingChange) {
+        return false;
+    }
+    sPendingSettingChange = false;
+    return true;
+}
+
+void RequestBootArchiveReload() {
+    sPendingBootArchiveReload = true;
 }
 
 bool GetLooseBRSAROverrideSizes(u32 fileId, u32 &outFileSize, u32 &outWaveDataSize) {
@@ -4264,6 +4419,26 @@ u32 GetLooseArchiveOverrideFileCount() {
 
     EnsureOverrideIndicesBuilt();
     return sOverrideDatabase.taggedCount + sOverrideDatabase.wholeFileCount + sOverrideDatabase.brsarCount;
+}
+
+// Kart archives decode onto a root heap that survives between races
+static EGG::Heap* KartArchiveRootHeap(u32 requiredSize) {
+    EGG::Heap* systemHeap = nullptr;
+    if (System::sInstance != nullptr) systemHeap = static_cast<EGG::Heap*>(System::sInstance->heap);
+    EGG::Heap* candidates[3];
+    candidates[0] = RKSystem::mInstance.EGGRootMEM2;
+    candidates[1] = RKSystem::mInstance.EGGRootMEM1;
+    candidates[2] = systemHeap;
+    for (u32 i = 0; i < 3; ++i) {
+        if (candidates[i] == nullptr) continue;
+        if (candidates[i]->getAllocatableSize(0x20) >= requiredSize) return candidates[i];
+    }
+    return nullptr;
+}
+
+static bool IsRaceKartArchivePath(const char* path) {
+    static const char prefix[] = "Race/Kart/";
+    return path != nullptr && strncmp(path, prefix, sizeof(prefix) - 1) == 0;
 }
 
 }  // namespace IOOverrides

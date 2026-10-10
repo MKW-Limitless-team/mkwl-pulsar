@@ -44,6 +44,8 @@ bool ApplyLooseOverrides(const char *archiveBaseLower, u8 *&archiveBase, u32 &ar
                          u32 *outMissingOverrides, const u8 *compressedData);
 
 bool AreLooseArchiveOverridesEnabledForDebug();
+bool ConsumeLooseOverrideSettingChange();
+void RequestBootArchiveReload();
 bool GetLooseBRSAROverrideSizes(u32 fileId, u32 &outFileSize, u32 &outWaveDataSize);
 bool ReadLooseBRSAROverrideFile(u32 fileId, void *dest, u32 size);
 bool ReadLooseBRSAROverrideWaveData(u32 fileId, void *dest, u32 size);

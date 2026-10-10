@@ -949,6 +949,25 @@ RequestSceneReinit__10SectionMgrFUiUi = 0x80635b2c
 RequestSceneChange__10SectionMgrFUiUi = 0x80635ac8
 sInstance__10SectionMgr = 0x809c1e38
 
+#FontManager
+Init__11FontManager = 0x805d14a4
+sInstance__11FontManager = 0x809c1bf8
+
+#EGG::Heap
+sCurrentHeap__Q23EGG4Heap = 0x80386ea0
+findContainHeap__Q23EGG4HeapFPv = 0x80229adc
+
+#EGG::Archive
+Unmount__Q23EGG7ArchiveFv = 0x8020fa38
+
+#System/ResourceManager/SceneManager
+Load__Q26ResourceManagerFPcv = 0x80540450
+UnmountSceneArchive__Q26ResourceManagerFv = 0x805411d4
+HolderIsLoaded__Q26ResourceManagerFv = 0x8052a800
+
+#EGG::SceneManager
+CreateScene__Q23EGG8SceneManagerFv = 0x8023b0e4
+
 ##CONTROLS
 ##Supporting SubClasses
 #ControlGroup

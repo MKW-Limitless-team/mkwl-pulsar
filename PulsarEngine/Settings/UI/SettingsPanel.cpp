@@ -4,6 +4,8 @@
 #include <Settings/UI/ExpFroomPage.hpp>
 #include <Settings/UI/ExpWFCMainPage.hpp>
 #include <SlotExpansion/CupsConfig.hpp>
+#include <IO/LooseArchiveOverrides.hpp>
+#include <core/rvl/OS/OS.hpp>
 
 namespace Pulsar {
 namespace UI {
@@ -251,6 +253,13 @@ void SettingsPanel::LoadPrevMenuAndSaveSettings(PushButton& button) {
     }
     //else if(this->prevPageId == PAGE_SINGLE_PLAYER_MENU) ExpSinglePlayer::topSettingsPage = static_cast<PulPageId>(this->pageId);
     this->SaveSettings(true);
+
+    if(IOOverrides::ConsumeLooseOverrideSettingChange() && SectionMgr::sInstance != nullptr) {
+        SectionMgr* mgr = SectionMgr::sInstance;
+        mgr->SetNextSection(mgr->curSection->sectionId, 0);
+        mgr->RequestSceneChange(0, 0);
+        IOOverrides::RequestBootArchiveReload();
+    }
 }
 
 //On Save Click/Back Press, is called and updates PulsarSettings

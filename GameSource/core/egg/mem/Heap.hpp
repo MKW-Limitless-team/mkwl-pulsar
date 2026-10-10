@@ -17,7 +17,7 @@ enum HeapType {
 
 class Heap : public Disposer {
 public:
-    static Heap* current; //80386ea0
+    static Heap* sCurrentHeap; //80386ea0
     Heap(MEM::iHeapHead* rvlHeap); //802296e8
     virtual ~Heap(); //80229780 vtable 802a30c0
     virtual HeapType getHeapKind() const = 0;
