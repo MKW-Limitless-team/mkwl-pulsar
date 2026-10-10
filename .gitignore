@@ -61,3 +61,7 @@ PulsarPackCreator/Executable/Pulsar Pack Creator.dll.config
 
 PulsarPackCreator/Executable/temp
 assets/
+docs/
+
+AGENTS.md
+SKILL.md
