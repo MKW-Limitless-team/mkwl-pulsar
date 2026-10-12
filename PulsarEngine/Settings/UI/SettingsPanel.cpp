@@ -1,5 +1,6 @@
 #include <Settings/UI/SettingsPanel.hpp>
 #include <Settings/Settings.hpp>
+#include <UI/RaceHUDColour.hpp>
 #include <Settings/UI/ExpOptionsPage.hpp>
 #include <Settings/UI/ExpFroomPage.hpp>
 #include <Settings/UI/ExpWFCMainPage.hpp>
@@ -282,12 +283,28 @@ void SettingsPanel::SaveSettings(bool writeFile) {
         }
     }
     settings->Update();
+    RaceHUDColour::WriteThemeToFuchiTable();
 }
 
 void SettingsPanel::OnBackPress(u32 hudSlotId) {
     PushButton& okButton = *this->externControls[0];
     okButton.SelectFocus();
     this->LoadPrevMenuAndSaveSettings(okButton);
+}
+
+bool SettingsPanel::GetLiveThemeGradient(u32& startColour, u32& endColour, RaceHUDColour::Direction& direction) const {
+    if (this->sheetIdx != Settings::SETTINGSTYPE_THEME) return false;
+    const int preset = this->radioSettings[this->sheetIdx][SETTINGTHEME_RADIO_PRESET];
+    int colour1 = 0;
+    int colour2 = 0;
+    int dirValue = 0;
+    if (preset == THEMESETTING_PRESET_CUSTOM) {
+        colour1 = this->scrollerSettings[this->sheetIdx][SETTINGTHEME_SCROLL_COLOUR1 - Settings::Params::maxRadioCount];
+        colour2 = this->scrollerSettings[this->sheetIdx][SETTINGTHEME_SCROLL_COLOUR2 - Settings::Params::maxRadioCount];
+        dirValue = this->radioSettings[this->sheetIdx][SETTINGTHEME_RADIO_DIRECTION];
+    }
+    RaceHUDColour::GetGradientFromValues(preset, colour1, colour2, dirValue, startColour, endColour, direction);
+    return true;
 }
 
 void SettingsPanel::OnSaveButtonClick(PushButton& button, u32 hudSlotId) {

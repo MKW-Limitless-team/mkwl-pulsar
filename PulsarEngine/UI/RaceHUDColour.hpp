@@ -6,7 +6,6 @@
 namespace Pulsar {
 namespace UI {
 
-// Utility class for gradient colour management
 class RaceHUDColour {
 public:
     enum Direction {
@@ -15,16 +14,29 @@ public:
         Direction_Diagonal
     };
 
-    // Get current gradient colours and direction from Input Display settings
     static void GetCurrentGradient(u32& startColour, u32& endColour, Direction& direction);
-    
-    // Convert setting value to RGBA colour
+
     static u32 GetColourFromSetting(int colourSetting);
-    
-    // Apply gradient to a picture pane
+
+    static void GetGradientFromValues(int preset, int colour1, int colour2, int directionValue,
+        u32& startColour, u32& endColour, Direction& direction);
+
     static void SetPaneGradient(nw4r::lyt::Pane* pane, u32 startColour, u32 endColour, Direction direction);
 
+    static bool IsSplitscreen();
+
     static void ApplyRaceHUDColours();
+    static void WriteThemeToFuchiTable();
+
+    static void WriteFuchiTableColours(u32 startColour, u32 endColour);
+
+    static void UpdateFuchiTableForPlayerMode();
+
+    static void SetPaneGradientKeepAlpha(nw4r::lyt::Pane* pane, u32 startColour, u32 endColour, Direction direction);
+
+    static void SetMaterialWhiteRegs(nw4r::lyt::Pane* pane);
+
+    static void ApplyMenuThemeColours();
 
 };
 

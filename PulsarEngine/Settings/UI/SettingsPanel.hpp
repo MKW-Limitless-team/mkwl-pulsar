@@ -8,6 +8,7 @@
 #include <MarioKartWii/UI/Page/Menu/VSSettings.hpp>
 #include <Settings/SettingsParam.hpp>
 #include <UI/UI.hpp>
+#include <UI/RaceHUDColour.hpp>
 
 /*SettingsPanel which has (currently) 3 pages for menu, race and host settings
 Inspired by VSRaceSettings but does not extend it as I wanted a custom amount of radioControls/scrollers depending on the page
@@ -42,6 +43,11 @@ public:
     UIControl* CreateControl(u32 id) override; //0x88
     void SetButtonHandlers(PushButton& pushButton) override; //80853aac 0x8C
     void OnBackPress(u32 hudSlotId);
+    TextUpDownValueControl* GetTextUpDown(u32 idx) {
+        if (idx >= Settings::Params::maxScrollerCount) return nullptr;
+        return &this->textUpDown[idx];
+    }
+    bool GetLiveThemeGradient(u32& startColour, u32& endColour, RaceHUDColour::Direction& direction) const;
 
 private:
     void UpdateText();
