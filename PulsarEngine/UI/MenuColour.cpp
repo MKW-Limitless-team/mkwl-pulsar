@@ -43,15 +43,6 @@ static void ApplyThemeToPane(nw4r::lyt::Pane* pane, u32 startColour, u32 endColo
     if (pane->material) UI::UnbindRLMC(pane->material);
 }
 
-static nw4r::lyt::Pane* FindPaneByNames(const LayoutUIControl* control,
-                                        const char* const* names, u32 count) {
-    for (u32 i = 0; i < count; ++i) {
-        nw4r::lyt::Pane* pane = control->layout.GetPaneByName(names[i]);
-        if (pane) return pane;
-    }
-    return nullptr;
-}
-
 static void TintInlineButtonArray(const char* base, u32 stride, u32 count,
                                   u32 startColour, u32 endColour,
                                   RaceHUDColour::Direction direction) {
@@ -66,6 +57,9 @@ static void TintInlineButtonArray(const char* base, u32 stride, u32 count,
 
 // Per-element themes
 
+static void ApplyUpDownTheme(const UpDownControl* control, u32 startColour, u32 endColour,
+                             RaceHUDColour::Direction direction);
+
 static void ApplyButtonTheme(const LayoutUIControl* control, u32 startColour, u32 endColour,
                              RaceHUDColour::Direction direction) {
     ApplyThemeToPane(control->layout.GetPaneByName("fuchi_pattern"),
@@ -77,18 +71,13 @@ static void ApplyRowTheme(const LayoutUIControl* control, u32 startColour, u32 e
     ApplyButtonTheme(control, startColour, endColour, direction); // underline
 
     const UpDownControl* upDown = static_cast<const UpDownControl*>(control);
-    for (u32 b = 0; b < kUpDownArrowCount; ++b) {
-        const UpDownControl::UpDownButton* arrow = &upDown->arrowButtons[b];
-        if (!IsSanePtr(arrow->layout.layout.rootPane)) continue;
-        ApplyButtonTheme(arrow, startColour, endColour, direction);
-    }
+    ApplyUpDownTheme(upDown, startColour, endColour, direction);
 }
 
 static void ApplyValueBoxTheme(const LayoutUIControl* control, u32 startColour, u32 endColour,
                                RaceHUDColour::Direction direction) {
-    static const char* valuePaneNames[] = { "fuchi_black", "shadow", "fuchi_pattern" };
-    ApplyThemeToPane(FindPaneByNames(control, valuePaneNames, 3),
-                     startColour, endColour, direction);
+    nw4r::lyt::Pane* pane = control->layout.GetPaneByName("fuchi_pattern");
+    ApplyThemeToPane(pane, startColour, endColour, direction);
 }
 
 static void ApplyRadioPanes(const LayoutUIControl* control, u32 startColour, u32 endColour,
@@ -100,6 +89,19 @@ static void ApplyRadioPanes(const LayoutUIControl* control, u32 startColour, u32
         ApplyThemeToPane(pane, startColour, endColour, direction);
         if (strcmp(radioPaneNames[j], "fuchi_pattern") == 0) {
             RaceHUDColour::SetMaterialWhiteRegs(pane);
+        }
+    }
+}
+
+static void ApplyUpDownTheme(const UpDownControl* control, u32 startColour, u32 endColour,
+                             RaceHUDColour::Direction direction) {
+    // Only theme fuchi_pattern for UpDownControl
+    if (IsSanePtr(control->fuchi_pattern)) ApplyThemeToPane(control->fuchi_pattern, startColour, endColour, direction);
+    for (u32 i = 0; i < kUpDownArrowCount; ++i) {
+        const UpDownControl::UpDownButton* arrow = &control->arrowButtons[i];
+        if (IsSanePtr(arrow->layout.layout.rootPane)) {
+            nw4r::lyt::Pane* fuchi = arrow->layout.GetPaneByName("fuchi_pattern");
+            if (fuchi) ApplyThemeToPane(fuchi, startColour, endColour, direction);
         }
     }
 }
@@ -145,7 +147,6 @@ static void ApplySheetArrows(const UIControl* control, u32 startColour, u32 endC
                           kSheetArrowStride, kSheetArrowCount,
                           startColour, endColour, direction);
 }
-
 // Class dispatch
 
 enum ThemeAction {
@@ -164,6 +165,68 @@ struct ClassTheme {
     const char* className;
     ThemeAction action;
     u32 count; // only read for ThemeAction_NameList
+};
+
+// Page inline button config (for buttons that are direct Page members, not in controlGroup)
+struct PageInlineButton {
+    u32 offset;
+    const char* paneName;
+};
+
+struct PageInlineConfig {
+    const PageInlineButton* buttons;
+    u32 count;
+    u32 stride; // for arrays like friendButtons[5]
+};
+
+static void ApplyPageInlineButtons(const Page* page, const PageInlineConfig* config,
+                                   u32 startColour, u32 endColour,
+                                   RaceHUDColour::Direction direction) {
+    if (config->stride == 0) {
+        // Single buttons at specific offsets
+        for (u32 i = 0; i < config->count; ++i) {
+            const char* base = reinterpret_cast<const char*>(page) + config->buttons[i].offset;
+            const LayoutUIControl* btn = reinterpret_cast<const LayoutUIControl*>(base);
+            if (IsSanePtr(btn->layout.layout.rootPane)) {
+                nw4r::lyt::Pane* pane = btn->layout.GetPaneByName(config->buttons[i].paneName);
+                ApplyThemeToPane(pane, startColour, endColour, direction);
+            }
+        }
+    } else {
+        // Array of buttons with stride
+        const char* base = reinterpret_cast<const char*>(page) + config->buttons[0].offset;
+        TintInlineButtonArray(base, config->stride, config->count, startColour, endColour, direction);
+    }
+}
+
+// Page inline button configs
+static const PageInlineButton s_wfcMainButtons[] = {
+    { 0x230, "fuchi_pattern" }, // worldwideButton
+    { 0x484, "fuchi_pattern" }, // regionalButton
+    { 0x6D8, "fuchi_pattern" }, // friendsButton
+    { 0x934, "fuchi_pattern" }  // backButton
+};
+
+static const PageInlineButton s_wfcFriendsButtons[] = {
+    { 0x230, "fuchi_pattern" }, // rosterButton
+    { 0x48C, "fuchi_pattern" }, // registerButton
+    { 0x6E0, "fuchi_pattern" }, // createRoomButton
+    { 0x934, "fuchi_pattern" }  // backButton
+};
+
+static const PageInlineButton s_friendListButtons[] = {
+    { 0x268, "fuchi_pattern" } // friendButtons[5] - stride handled by config
+};
+
+static const PageInlineButton s_friendInfoButtons[] = {
+    { 0x42C, "fuchi_pattern" } // joinButton
+};
+
+static const PageInlineConfig s_pageInlineConfigs[] = {
+    { s_wfcMainButtons,    4, 0 },        // WFC Main Menu
+    { s_wfcFriendsButtons, 4, 0 },        // WFC Friends Menu
+    { s_friendListButtons, 5, 0x264 },    // FriendList: 5 buttons, stride 0x264
+    { s_friendInfoButtons, 1, 0 }         // FriendInfo
 };
 
 static const ClassTheme kClassThemes[] = {
@@ -190,7 +253,7 @@ static const ClassTheme kClassThemes[] = {
     { "ButtonMachine",                         ThemeAction_Button,      0 },
     { "CtrlMenuCharacterSelect::ButtonDriver", ThemeAction_Button,      0 },
     { "CourseButton",                          ThemeAction_Button,      0 },
-    { "StageButton",                           ThemeAction_Button,      0 }
+    { "StageButton",                           ThemeAction_Button,      0 },
 };
 
 static const u32 kClassThemeCount = sizeof(kClassThemes) / sizeof(kClassThemes[0]);
@@ -298,6 +361,17 @@ void MenuColour::ApplyPageTheme(const Page* page) {
             ApplyValueBoxTheme(valueControl, startColour, endColour, direction);
         }
     }
+
+    // Pages with inline buttons not in controlGroup
+    const PageInlineConfig* pageConfig = nullptr;
+    switch (page->pageId) {
+        case PAGE_WFC_MAIN:         pageConfig = &s_pageInlineConfigs[0]; break;
+        case PAGE_WFC_FRIENDS_MENU: pageConfig = &s_pageInlineConfigs[1]; break;
+        case PAGE_FRIEND_LIST:      pageConfig = &s_pageInlineConfigs[2]; break;
+        case PAGE_FRIEND_INFO:      pageConfig = &s_pageInlineConfigs[3]; break;
+        default: break;
+    }
+    if (pageConfig) ApplyPageInlineButtons(page, pageConfig, startColour, endColour, direction);
 }
 
 } // namespace UI
