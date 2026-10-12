@@ -9,13 +9,7 @@ namespace Pulsar {
 namespace UI {
 namespace StatBars {
 
-//Vehicle-select stat bars sourced from kartParam.bin (including our playstyle tables),
-//normalized with P5..P95 percentile clamping.  ability_graph shows the vanilla/base
-//stat value.  Two overlay pic1 panes in the BRLYT show playstyle differences:
-//ps_red (red, in front of base) appears when a stat is nerfed.
-//ps_blue (blue, behind base) appears when a stat is buffed.
-//Both are hidden when the style is vanilla or the stat is unchanged.
-
+//ps_red and ps_blue overlay the base ability_graph pane when a playstyle buffs or nerfs a stat
 struct PageGraphInfo {
     PageId id;
     u32 graphOffset;
@@ -30,7 +24,7 @@ static const PageGraphInfo pageGraphs[3] = {
 static const u32 abilityStride = 0x17C;
 static const u32 abilityPaneOffset = 0x174;
 
-//stale/freed graph pointers pass header checks; Wii RAM windows: MEM1 0x80000000-0x81800000, MEM2 0x90000000-0x94000000
+//stale and freed graph pointers still pass header checks
 extern "C" const void* CtrlMenuMachineGraph_vtable;
 
 static bool IsRamPointer(u32 p) {
@@ -74,19 +68,17 @@ static const u32 COLOR_GAIN_RIGHT = 0x00FF11FF;
 
 static const char* KART_PARAM_PATH = "/Pulsar/UI/playstyle_kartparam.bin";
 static const u32 ENTRY_SIZE = 396;
-//VEHICLE_COUNT and STYLE_COUNT come from CustomVehicles.hpp: kartParam.bin holds one
-//block of VEHICLE_COUNT entries per style, indexed as kart + VEHICLE_COUNT * style
+//one block of VEHICLE_COUNT entries per style, indexed as kart + VEHICLE_COUNT * style
 static const u8* kartParamEntries = nullptr;
 static bool kartParamLoadAttempted = false;
 
-// Icon classification thresholds
 static const float DRIFT_HYBRID_MAX = 40.0f;
 static const float DRIFT_OUTSIDE_MAX = 55.0f;
 static const u32 CORSA_MT_THRESHOLD = 10;
 static const float PERF_TRANS_THRESHOLD = 0.0f;
 static const float QC_THRESHOLD = 270.0f;
 
-//icon material carrier panes (must match JSON5); slot panes are swap targets only, never material sources
+//material carriers, matching the JSON5; slot panes are swap targets only
 static const char* ICON_MAT_SOURCE_NAMES[7] = {
     "mat_src_inside",   // material 7 = mat_icon_inside
     "mat_src_hybrid",   // material 8 = mat_icon_hybrid
@@ -97,7 +89,6 @@ static const char* ICON_MAT_SOURCE_NAMES[7] = {
     "mat_src_qc"        // material 13 = mat_icon_qc
 };
 
-// 3 fixed-position icon slot panes in BRLYT (pre-positioned under mini turbo bar)
 static const char* ICON_SLOT_NAMES[3] = {
     "icon_slot_0", "icon_slot_1", "icon_slot_2"
 };
@@ -392,8 +383,7 @@ void GraphUpdateHook(CtrlMenuMachineGraph* graph, CharacterId character, KartId 
             static u8 fileBuffer[VEHICLE_COUNT * STYLE_COUNT * ENTRY_SIZE + 4 + 64];
             u8* alignedBuf = reinterpret_cast<u8*>(
                 (reinterpret_cast<u32>(fileBuffer) + 31) & ~31u);
-            //+32: alignedBuf sits up to 31 bytes past fileBuffer, so the head
-            //drift must be reserved or the DMA write runs past the buffer's end
+            //+32: the aligned buffer starts up to 31 bytes in, so reserve that head drift
             if(size > 0 && static_cast<u32>(readSize) + 32 <= sizeof(fileBuffer)
                 && DVD::Open(KART_PARAM_PATH, &info)) {
                 DVD::ReadPrio(&info, alignedBuf, readSize, 0, 2);

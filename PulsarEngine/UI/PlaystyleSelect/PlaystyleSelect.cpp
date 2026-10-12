@@ -163,9 +163,7 @@ struct MutedScrollGate : PtmfHolder_2A<LayoutUIControl, void, u32, u32> {
 };
 static MutedScrollGate mutedScrollGate;
 
-//CheckActions plays the decide-SE before dispatching and nothing suppresses it per
-//button, so confirmed players get their selection pointed at a handler-less target.
-//Never use null here: CheckActions derefs curManipulator + offset unguarded.
+//CheckActions plays the decide-SE before dispatching and never muting it per button
 void PlaystyleSelect::ClearPlayerSelection(u8 hud) {
     ControlManipulator& man = this->arrows[hud].rightArrow.manipulator;
     this->savedScrollHandlers[hud] = man.actionHandlers[FORWARD_PRESS];
@@ -282,8 +280,7 @@ void PlaystyleSelect::OnBackPress(u32 hudSlotId) {
         return;
     }
 
-    //only player 1 may back out (vanilla local multiplayer convention); the section
-    //contains MultiDriftSelect, not DriftSelect
+    //only player 1 may back out; the section holds MultiDriftSelect, not DriftSelect
     if(hudSlotId != 0) return;
     this->nextPageId = PAGE_MULTIPLAYER_DRIFT_SELECT;
     this->EndStateAnimated(0, this->backButton.GetAnimationFrameSize());

@@ -12,16 +12,14 @@ namespace UI {
 
 class PlaystyleSelect;
 
-//A-click gate installed as the plate's FORWARD_PRESS action handler: swallows the
-//press entirely while the player's selection is confirmed, otherwise forwards
+//swallows the plate's A press while the player is confirmed
 struct PlateClickGate : PtmfHolder_2A<LayoutUIControl, void, u32, u32> {
     PlaystyleSelect* page;
     u32 hud;
     void operator()(u32 hudSlotId, u32 r5) const override;
 };
 
-//local multiplayer style picker: per player an "arrow cycler" widget (left arrow |
-//style name | right arrow); A confirms, B undoes; all confirmed -> cup select
+//per player an arrow cycler; A confirms, B undoes, all confirmed advances to cup select
 class PlaystyleSelect : public Pages::MenuInteractable {
 public:
     static const PageId id = PULPAGE_PLAYSTYLESELECT;

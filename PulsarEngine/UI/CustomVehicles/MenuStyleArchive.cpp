@@ -20,28 +20,24 @@ namespace Pulsar {
 namespace UI {
 namespace CustomVehicles {
 
-//style whose menu archive is bound per hud slot; 0 loads vanilla
+//---- state and game types ----
+
 static u8 menuBoundStyle[4] = {0, 0, 0, 0};
-//set when a reload is requested, until the rebuilt icons are bound again
 static bool iconRebindPending = false;
-//set once the icon bind latches were cleared, so the wait does not clear them every frame
 static bool iconLatchesCleared = false;
 
-//ArchiveMgr::allkartsModelsLoaders[hud], seen as the fields the style machinery needs
+//the fields of ArchiveMgr::allkartsModelsLoaders[hud] this file needs
 struct MenuArchiveLoader {
     void* vtable;            //+0x0
     EGG::ExpHeap* mountHeap; //+0x4
     EGG::ExpHeap* dumpHeap;  //+0x8
-    s32 state;               //+0xc AllkartArchivesLoader::State
+    s32 state;               //+0xc
     s32 character;           //+0x10
 };
-//AllkartArchivesLoader::State
-static const s32 LOADER_HAS_LOADED = 4;
+static const s32 LOADER_HAS_LOADED = 4; //AllkartArchivesLoader::ALLKARTARCHIVES_HASLOADED
 
-//offset of the icon bind latch inside a ButtonMachine vehicle row button
-static const u32 ICON_BOUND_LATCH = 0x25C;
+static const u32 ICON_BOUND_LATCH = 0x25C; //inside a ButtonMachine vehicle row button
 
-//the game's own "rebuild this slot's menu models for this character" (0x805f570c)
 typedef void (*LoadKartModelsByCharacterFunc)(Pages::ModelRenderer*, u32, CharacterId);
 kmRuntimeUse(0x805f570c);
 static LoadKartModelsByCharacterFunc const LoadKartModelsByCharacter =
@@ -53,7 +49,6 @@ static MenuArchiveLoader* MenuLoaderForHud(u8 hud) {
     return reinterpret_cast<MenuArchiveLoader*>(&mgr->allkartsModelsLoaders[hud]);
 }
 
-//character the menu models of this hud slot are loaded with, -1 when there is none yet
 static s32 LoadedCharacter(u8 hud) {
     const MenuArchiveLoader* loader = MenuLoaderForHud(hud);
     if(loader == nullptr || loader->character < 0 || loader->character >= CHARACTER_COUNT) return -1;
@@ -68,12 +63,10 @@ static MenuDriverModel* DriverModelForHud(u8 hud) {
 
 //---- page and player context ----
 
-//kart select pages on which style cycling is active; battle is excluded
 static bool IsKartSelectPageId(u32 id) {
     return id == PAGE_KART_SELECT || id == PAGE_MULTIPLAYER_KART_SELECT;
 }
 
-//top page of the kart select screen, null on every other page
 static Page* KartSelectTopPage() {
     SectionMgr* mgr = SectionMgr::sInstance;
     if(mgr == nullptr || mgr->curSection == nullptr) return nullptr;
@@ -86,14 +79,13 @@ static bool IsStyleSelectActive(const Page* top) {
     return top->currentState == 4 && !top->updateState; //STATE_ACTIVE
 }
 
-//local multiplayer picks styles on its own page, so the vehicle select screen never changes style there
+//local multiplayer picks styles on its own page
 static bool UsesPlaystyleSelectPage() {
     const ExpSection* section = ExpSection::GetSection();
     return section != nullptr
         && section->pulPages[PULPAGE_PLAYSTYLESELECT - PULPAGE_INITIAL] != nullptr;
 }
 
-//the vehicle select screen only changes style for a single local player; splitscreen does not
 static bool IsSinglePlayerScreen(const SectionMgr& mgr) {
     return mgr.sectionParams->localPlayerCount < 2;
 }
@@ -108,7 +100,7 @@ static void PrepareDriverOnKartAnmsHook(MenuDriverModelMgr* mgr, u32 hud) {
     if(hud >= 4) return;
     MenuDriverModel* driver = mgr->players[hud].playerModel;
     if(driver == nullptr) return;
-    //the original leaves the driver on its character select transformator, so put it back on the kart
+    //the original strands the driver on its character select transformator
     if(driver->state != MenuDriverModel::MENUDRIVERMODEL_STATE_ONKARTSELECT && !iconRebindPending) return;
     driver->state = MenuDriverModel::MENUDRIVERMODEL_STATE_ONCHARSELECT; //SwitchState ignores an unchanged state
     driver->SwitchState(static_cast<u8>(hud), MenuDriverModel::MENUDRIVERMODEL_STATE_ONKARTSELECT);
@@ -125,7 +117,7 @@ static ControllerType ControllerForHud(const SectionMgr& mgr, u8 hud) {
     return type <= GCN ? type : GCN;
 }
 
-//raw +/- buttons per controller type; indexed by ControllerType (WHEEL, NUNCHUCK, CLASSIC, GCN)
+//indexed by ControllerType (WHEEL, NUNCHUCK, CLASSIC, GCN)
 struct ToggleButtons {
     u16 prev;
     u16 next;
@@ -145,26 +137,22 @@ static void EatButton(Input::RealControllerHolder& holder, u16 button, u16 actio
     holder.uiinputStates[0].buttonActions &= static_cast<u16>(~action);
 }
 
-//state of player 1 on the vehicle select screen
 struct KartSelectUi {
-    u32 shownKart; //STYLE_TOOLTIP_STALE forces a tooltip refresh
+    u32 shownKart;
     u8 shownStyle;
-    u16 heldButtons; //toggle buttons currently held, for edge detection
+    u16 heldButtons; //for edge detection
 };
 static const u32 STYLE_TOOLTIP_STALE = 0xFFFFFFFF;
 static KartSelectUi kartSelectUi = {STYLE_TOOLTIP_STALE, 0, 0};
 
-//keep the style tooltip in sync with the hovered vehicle and the current style
 static void SetStyleLabel(Pages::Menu& page, u32 kart, u8 style) {
     if(page.bottomText == nullptr || kart >= VEHICLE_COUNT) return;
     page.bottomText->SetMessage(BMG_PLAYSTYLE_NAMES + kart * STYLE_COUNT + style);
 }
 
-//cycles the style of player 1 on the shoulder buttons and mirrors it in the bottom text
 static void ProcessStyleInput(const SectionMgr& mgr, Page* top) {
     if(!IsStyleSelectActive(top)) {
-        //force a tooltip refresh on the next active frame
-        kartSelectUi.shownKart = STYLE_TOOLTIP_STALE;
+        kartSelectUi.shownKart = STYLE_TOOLTIP_STALE; //force a tooltip refresh on the next active frame
         return;
     }
 
@@ -193,29 +181,25 @@ static void ProcessStyleInput(const SectionMgr& mgr, Page* top) {
     else if((pressed & toggle.next) != 0) step = 1;
     else return;
 
-    //don't change style while a reload is in flight or its icons have not been bound again
+    //block while a reload is in flight or its icons have not been bound again
     if(iconRebindPending) return;
 
-    //cycle through all styles; vehicles without a style archive fall back to vanilla
     const u8 style = playstyles[0];
     const u32 next = (style + STYLE_COUNT + step) % STYLE_COUNT;
     if(next == style) return;
 
     playstyles[0] = static_cast<u8>(next);
     Audio::RSARPlayer::PlaySoundById(step > 0 ? SOUND_ID_RIGHT_ARROW_PRESS : SOUND_ID_LEFT_ARROW_PRESS, 0, nullptr);
-    //stat bars reflect the newly selected playstyle immediately
     StatBars::RefreshGridBars(0, static_cast<KartId>(kart));
 }
 
 //---- menu archive binding ----
 
-//menu style whose archive should actually be bound; 0 when custom archives are disabled or the style is missing
 static u8 BoundMenuStyle(u32 character, u8 style) {
     if(style == 0 || !CustomArchivesEnabled()) return 0;
     return CharacterStyleArchiveExists(character, style) ? style : 0;
 }
 
-//latches an out-of-band selection (the multiplayer picker) into the bound style
 void NoteMenuStyleSelected(u8 hud) {
     if(hud >= 4) return;
     const s32 character = LoadedCharacter(hud);
@@ -223,7 +207,6 @@ void NoteMenuStyleSelected(u8 hud) {
     menuBoundStyle[hud] = BoundMenuStyle(static_cast<u32>(character), playstyles[hud] & 3);
 }
 
-//sets a randomised playstyle and latches the bound style of the new character
 void NoteComboRandomisedStyle(u8 hud, u32 character, u8 style) {
     if(hud >= 4 || character >= CHARACTER_COUNT) return;
     playstyles[hud] = style & 3;
@@ -236,7 +219,7 @@ static bool MenuPathIsBattle(const char* path) {
     return len >= 3 && path[len - 3] == '_' && path[len - 2] == 'B' && path[len - 1] == 'T';
 }
 
-//match the "<name>" in "Scene/Model/Kart/<name>-allkart[_BT]" back to a character id
+//resolves the "<name>" in "Scene/Model/Kart/<name>-allkart[_BT]" back to a character id
 static bool MenuPathCharacter(const char* path, u32& character) {
     static const char prefix[] = "Scene/Model/Kart/";
     static const char suffix[] = "-allkart";
@@ -263,10 +246,9 @@ kmRuntimeUse(0x8052A954);
 typedef void (*LoadArchivesFunc)(ArchivesHolder*, const char*, EGG::Heap*, EGG::Heap*, u32*);
 static LoadArchivesFunc const RealLoadArchives = reinterpret_cast<LoadArchivesFunc>(kmRuntimeAddr(0x8052A954));
 
-//race kart archives are mounted from a job context path buffer of this size (mkw-pal.c strncpy 0x40)
-static const u32 RACE_PATH_CAPACITY = 0x40;
+//race kart archives are mounted from a job context path buffer of this size
+static const u32 RACE_PATH_CAPACITY = 0x40; //mkw-pal.c strncpy 0x40
 
-//which race player a kart archive holder belongs to, in either holder array; NO_HOLDER if neither
 #define NO_HOLDER 0xFF
 static u8 PlayerIdForKartArchive(const ArchiveMgr* mgr, const ArchivesHolder* holder) {
     if(mgr == nullptr || holder == nullptr) return NO_HOLDER;
@@ -294,7 +276,6 @@ static void MenuArchivePathHook(char* path, u8 hud) {
     if(!StartsWith(path, "Scene/Model/Kart/")) return;
     if(MenuPathIsBattle(path)) return;
     const u8 style = menuBoundStyle[hud] & 3;
-    //a stale bound style can never leak a styled path while custom archives are off
     if(style == 0 || !CustomArchivesEnabled()) return;
     u32 character = 0;
     if(!MenuPathCharacter(path, character) || !CharacterStyleArchiveExists(character, style)) return;
@@ -321,12 +302,10 @@ static void KartArchiveLoadHook(ArchivesHolder* holder, char* path, EGG::Heap* m
 }
 kmCall(0x805411b8, KartArchiveLoadHook);
 kmCall(0x80541FB8, KartArchiveLoadHook);
-//sync variant loader's load call (same register convention)
-kmCall(0x80542198, KartArchiveLoadHook);
-//job 5 (the kart archives) ends in a tail branch, so this one must stay a branch
-kmBranch(0x80540084, KartArchiveLoadHook);
+kmCall(0x80542198, KartArchiveLoadHook); //sync variant loader, same register convention
+kmBranch(0x80540084, KartArchiveLoadHook); //job 5 ends in a tail branch
 
-//the styled menu archives are larger than the vanilla ones, so the loaders get a bigger heap
+//the styled menu archives are larger than the vanilla ones
 kmRuntimeUse(0x80226AC8);
 typedef EGG::ExpHeap* (*ExpHeapCreateFunc)(int size, EGG::Heap* parent, u16 flags);
 static ExpHeapCreateFunc const RealExpHeapCreate = reinterpret_cast<ExpHeapCreateFunc>(kmRuntimeAddr(0x80226AC8));
@@ -350,7 +329,7 @@ static bool IsVehicleIconButton(UIControl* control) {
 }
 
 enum IconWalk {
-    ICON_CLEAR_LATCH, //a reload frees the icon textures, so the game has to bind them again
+    ICON_CLEAR_LATCH, //a reload frees the icon textures
     ICON_CHECK_BOUND
 };
 
@@ -396,7 +375,7 @@ static void ProcessIconRebind() {
     if(slot.hasLoadRequest || !slot.isLocked) return;
 
     if(!iconLatchesCleared) {
-        //the game binds a row icon in OnUpdate only while its latch is clear, and never clears it itself
+        //the game binds a row icon only while its latch is clear, and never clears it itself
         WalkVehicleSelectIcons(ICON_CLEAR_LATCH);
         iconLatchesCleared = true;
     }
@@ -406,7 +385,6 @@ static void ProcessIconRebind() {
     }
 }
 
-//requests a reload whenever the style to load no longer matches the bound one
 static void ProcessMenuRebindRequests() {
     const SectionMgr* mgr = SectionMgr::sInstance;
     if(mgr == nullptr || mgr->curSection == nullptr) return;
@@ -416,17 +394,15 @@ static void ProcessMenuRebindRequests() {
     if(renderer == nullptr || driver == nullptr || modelMgr == nullptr || modelMgr->kartModels == nullptr) return;
     const s32 character = LoadedCharacter(0);
     if(character < 0) return;
-    //missing styles and disabled custom archives load vanilla; reload when the loaded archive differs
     const u8 loadStyle = BoundMenuStyle(static_cast<u32>(character), playstyles[0] & 3);
     if(loadStyle == menuBoundStyle[0] || iconRebindPending) return;
 
-    //the reload frees the archive heap on the task thread, so move the driver off its on-kart
-    //transformator, which lives in that heap, before asking for it
+    //the reload frees the archive heap on the task thread, taking the on-kart transformator with it
     ModelTransformator* onKartTransformator = driver->onKartTransformator;
     driver->onKartTransformator = nullptr;
     driver->SwitchState(0, MenuDriverModel::MENUDRIVERMODEL_STATE_ONCHARSELECT);
 
-    //the game's own entry point keeps the page params in sync, so the kart is re-selected afterwards
+    //the game's own entry point keeps the page params in sync
     LoadKartModelsByCharacter(renderer, 0, static_cast<CharacterId>(character));
     if(!modelMgr->kartModels->players[0].hasLoadRequest) {
         //it declined, e.g. a request is already in flight: leave the driver on its kart
@@ -440,9 +416,7 @@ static void ProcessMenuRebindRequests() {
 }
 
 void MenuStyleUpdate() {
-    //runs on every page so a reload that survives a page change still settles its icons
-    ProcessIconRebind();
-    //local multiplayer picks its styles on the PlaystyleSelect page: no menu asset switching there
+    ProcessIconRebind(); //every page, so a reload that survives a page change still settles its icons
     if(UsesPlaystyleSelectPage()) return;
     const SectionMgr* mgr = SectionMgr::sInstance;
     if(mgr == nullptr || mgr->sectionParams == nullptr) return;
@@ -455,7 +429,7 @@ void MenuStyleUpdate() {
 
 }//namespace CustomVehicles
 
-//menu update wrapper: poll the style input just before the menu pipeline runs
+//polls the style input just before the menu pipeline runs
 void MenuSceneUpdateHook(SectionMgr& mgr) {
     CustomVehicles::MenuStyleUpdate();
     mgr.MenuUpdate();

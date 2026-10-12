@@ -12,16 +12,14 @@
 namespace Pulsar {
 namespace UI {
 
-//style currently selected by each local player
 u8 playstyles[4] = {0, 0, 0, 0};
-//style of each ghost slot, read from the ghost's RKG header
 u8 ghostPlaystyles[4] = {0, 0, 0, 0};
-//style of each cpu slot
 u8 cpuPlaystyles[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 namespace CustomVehicles {
 
-//style (0-3) for a race player: ghost -> ghostPlaystyles, cpu -> cpuPlaystyles, local/remote -> playstyles/remoteStyles
+//---- style resolution ----
+
 u8 StyleForPlayer(u8 playerId) {
     const Racedata* raceData = Racedata::sInstance;
     if(raceData == nullptr) return 0;
@@ -42,10 +40,10 @@ u8 StyleForPlayer(u8 playerId) {
 
     const RKNet::ControllerSub& sub = controller->subs[controller->currentSub];
     const u8 rawAid = controller->aidsBelongingToPlayerIds[playerId];
-    const u8 aid = rawAid & 0xF; //AI/offline seats hold 0xFF or garbage
+    const u8 aid = rawAid & 0xF; //AI and offline seats hold 0xFF or garbage
     if(aid >= 12 || rawAid == 0xFF) return 0;
 
-    //two players of one online console are the two race players sharing this aid
+    //two players on one console are the two race players sharing that aid
     const bool isLocal = aid == sub.localAid;
     const u8 playersAtConsole = isLocal ? sub.localPlayerCount
                                         : sub.connectionUserDatas[aid].playersAtConsole;
@@ -59,7 +57,8 @@ u8 StyleForPlayer(u8 playerId) {
     return static_cast<u8>(system->remoteStyles[aid][slot] & 3);
 }
 
-//assign each cpu race player a random style 1-3, re-rolled from the race seed
+//---- randomised styles ----
+
 void RandomiseCpuPlaystyles() {
     const Racedata* raceData = Racedata::sInstance;
     if(raceData == nullptr) return;
@@ -68,13 +67,12 @@ void RandomiseCpuPlaystyles() {
     if(gamemode != MODE_GRAND_PRIX && gamemode != MODE_VS_RACE) return;
     Random random(scenario.settings.randomSeed);
     for(u8 i = 0; i < 12; ++i) {
-        //the style is not checked against the archives here; a miss falls back to vanilla in the race
+        //not checked against the archives here; a miss falls back to vanilla in the race
         cpuPlaystyles[i] = scenario.players[i].playerType == PLAYER_CPU
             ? static_cast<u8>(1 + random.NextLimited(STYLE_COUNT - 1)) : 0;
     }
 }
 
-//randomise the style of each local player, latching the menu archive of the new combo
 void RandomiseLocalPlaystyles() {
     SectionMgr* sectionMgr = SectionMgr::sInstance;
     if(sectionMgr == nullptr || sectionMgr->curSection == nullptr) return;
@@ -95,7 +93,7 @@ void RandomiseLocalPlaystyles() {
 
 extern "C" void SetModelColorsImpl(void*, void*);
 
-//only applies star colours when the styled archive actually provides them
+//star colours are only safe once the styled archive has actually provided them
 static void SetModelColorsIfReady(void* starAnm, void* drawMdl) {
     if(drawMdl == nullptr) return;
     const u8* model = static_cast<const u8*>(drawMdl);

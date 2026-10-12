@@ -22,15 +22,14 @@ bool CustomArchivesEnabled() {
         SETTINGTHEME_RADIO_CUSTOMTEXTURES) == THEMESETTING_CUSTOMTEXTURES_ENABLED;
 }
 
-//"<vanillaName>-<style>" postfixes, generated once
+//---- archive naming and existence ----
+
 static const u32 POSTFIX_LENGTH = 32;
-static char vehiclePostfixes[VEHICLE_COUNT][STYLE_COUNT][POSTFIX_LENGTH];
 static char characterPostfixes[CHARACTER_COUNT][STYLE_COUNT][POSTFIX_LENGTH];
 
-//tri-state existence cache: 0 unknown, STYLE_MISSING, STYLE_EXISTS
+static const u8 STYLE_UNKNOWN = 0;
 static const u8 STYLE_MISSING = 1;
 static const u8 STYLE_EXISTS = 2;
-static u8 vehicleStyleExists[VEHICLE_COUNT][STYLE_COUNT][CHARACTER_COUNT];
 static u8 characterStyleExists[CHARACTER_COUNT][STYLE_COUNT];
 
 //probes an szs on disc; the answer cannot change for the life of the process
@@ -42,7 +41,6 @@ static bool SzsFileExists(const char* path) {
     return exists;
 }
 
-//"<vanillaName>-<style>", written into the given cache slot the first time it is asked for
 static const char* GeneratePostfix(char* cache, const char* vanillaName, u32 style) {
     if(vanillaName == nullptr) return nullptr;
     if(cache[0] != '\0') return cache;
@@ -53,31 +51,9 @@ static const char* GeneratePostfix(char* cache, const char* vanillaName, u32 sty
     return cache;
 }
 
-const char* VehicleStylePostfix(u32 kart, u32 style) {
-    if(kart >= VEHICLE_COUNT || style == 0 || style >= STYLE_COUNT) return nullptr;
-    return GeneratePostfix(vehiclePostfixes[kart][style], VEHICLE_NAMES[kart], style);
-}
-
 const char* CharacterStylePostfix(u32 character, u32 style) {
     if(character >= CHARACTER_COUNT || style == 0 || style >= STYLE_COUNT) return nullptr;
     return GeneratePostfix(characterPostfixes[character][style], CHARACTER_NAMES[character], style);
-}
-
-bool VehicleStyleArchiveExists(u32 kart, u32 style, CharacterId character) {
-    if(kart >= VEHICLE_COUNT || character >= CHARACTER_COUNT || style == 0 || style >= STYLE_COUNT) return false;
-    u8& cached = vehicleStyleExists[kart][style][character];
-    if(cached != 0) return cached == STYLE_EXISTS;
-    const char* postfix = VehicleStylePostfix(kart, style);
-    const char* characterName = CHARACTER_NAMES[character];
-    bool exists = false;
-    if(postfix != nullptr && characterName != nullptr) {
-        char path[0x60];
-        if(snprintf(path, sizeof(path), "/Race/Kart/%s-%s.szs", postfix, characterName) > 0) {
-            exists = SzsFileExists(path);
-        }
-    }
-    cached = exists ? STYLE_EXISTS : STYLE_MISSING;
-    return exists;
 }
 
 bool CharacterStyleArchiveExists(u32 character, u32 style) {
@@ -98,8 +74,44 @@ bool CharacterStyleArchiveExists(u32 character, u32 style) {
 
 //the game builds "Race/Kart/<vehicle><teamSuffix>-<character><modeSuffix>"
 static const char* const RACE_ARCHIVE_PREFIX = "Race/Kart/";
-//sizeof the literal, not the pointer
 static const u32 RACE_ARCHIVE_PREFIX_LENGTH = sizeof("Race/Kart/") - 1;
+
+//a rewritten path stays inside the 0x40 job context buffer; this leaves room for the slash and .szs
+static const u32 RACE_PROBE_PATH_LENGTH = 0x50;
+
+//keyed by full path, since the tail's suffixes are what a (kart, style, character) key drops
+static const u32 RACE_PROBE_SLOTS = 32;
+struct RaceStyleProbe {
+    char path[RACE_PROBE_PATH_LENGTH];
+    u8 result;
+};
+static RaceStyleProbe raceStyleProbes[RACE_PROBE_SLOTS];
+static u32 raceProbeCursor = 0;
+
+static bool RaceStyleArchiveExists(const char* candidate) {
+    char probe[RACE_PROBE_PATH_LENGTH];
+    const int written = snprintf(probe, sizeof(probe), "/%s.szs", candidate);
+    if(written <= 0 || static_cast<u32>(written) >= sizeof(probe)) return false;
+
+    for(u32 i = 0; i < RACE_PROBE_SLOTS; ++i) {
+        if(raceStyleProbes[i].result == STYLE_UNKNOWN) continue;
+        if(strcmp(raceStyleProbes[i].path, probe) == 0) return raceStyleProbes[i].result == STYLE_EXISTS;
+    }
+
+    const bool exists = SzsFileExists(probe);
+    u32 slot = RACE_PROBE_SLOTS;
+    for(u32 i = 0; i < RACE_PROBE_SLOTS; ++i) {
+        if(raceStyleProbes[i].result == STYLE_UNKNOWN) { slot = i; break; }
+    }
+    if(slot == RACE_PROBE_SLOTS) { //answers never change, so evicting is safe
+        slot = raceProbeCursor;
+        raceProbeCursor = (raceProbeCursor + 1) % RACE_PROBE_SLOTS;
+    }
+    const u32 copied = static_cast<u32>(snprintf(raceStyleProbes[slot].path, RACE_PROBE_PATH_LENGTH, "%s", probe));
+    raceStyleProbes[slot].path[copied] = '\0';
+    raceStyleProbes[slot].result = exists ? STYLE_EXISTS : STYLE_MISSING;
+    return exists;
+}
 
 //only the vehicle name is parsed; everything the game appended to it is kept as it is
 bool RewriteRaceArchivePath(char* path, u8 playerId, u32 capacity) {
@@ -111,16 +123,15 @@ bool RewriteRaceArchivePath(char* path, u8 playerId, u32 capacity) {
     const RacedataPlayer& player = raceData->racesScenario.players[playerId];
     const u8 style = StyleForPlayer(playerId);
     if(style == 0 || !CustomArchivesEnabled()) return false;
-    if(player.kartId >= VEHICLE_COUNT || player.characterId >= CHARACTER_COUNT) return false;
+    if(player.kartId >= VEHICLE_COUNT) return false;
     const char* vehicleName = VEHICLE_NAMES[player.kartId];
     if(vehicleName == nullptr) return false;
     const u32 nameLength = strlen(vehicleName);
 
     char* vehicle = path + RACE_ARCHIVE_PREFIX_LENGTH;
     if(strncmp(vehicle, vehicleName, nameLength) != 0) return false; //the game named another vehicle
-    if(!VehicleStyleArchiveExists(player.kartId, style, player.characterId)) return false;
 
-    //the styled archive sits next to the vanilla one: "<vehicleName>-<style>"
+    //the styled archive sits next to the vanilla one: "<vehicleName>-<style><tail>"
     const char* tail = vehicle + nameLength;
     const u32 tailLength = strlen(tail);
     char styleSuffix[4];
@@ -128,6 +139,14 @@ bool RewriteRaceArchivePath(char* path, u8 playerId, u32 capacity) {
     if(suffixLength <= 0 || (RACE_ARCHIVE_PREFIX_LENGTH + nameLength + tailLength + suffixLength) >= capacity) {
         return false;
     }
+
+    //probe the name this rewrite would produce, so a request the mod has no asset for keeps vanilla
+    char candidate[RACE_PROBE_PATH_LENGTH];
+    const int built = snprintf(candidate, sizeof(candidate), "%s%s%s%s", RACE_ARCHIVE_PREFIX, vehicleName,
+        styleSuffix, tail);
+    if(built <= 0 || static_cast<u32>(built) >= sizeof(candidate)) return false;
+    if(!RaceStyleArchiveExists(candidate)) return false;
+
     memmove(vehicle + nameLength + suffixLength, tail, tailLength + 1);
     memcpy(vehicle + nameLength, styleSuffix, suffixLength);
     return true;
