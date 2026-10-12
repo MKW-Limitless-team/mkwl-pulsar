@@ -23,6 +23,7 @@ u8 StyleForPlayer(u8 playerId);
 void RandomiseCpuPlaystyles();
 void RandomiseLocalPlaystyles();
 void NoteMenuStyleSelected(u8 hud);
+bool RequestMenuStyleReload(u8 hud);
 
 }//namespace CustomVehicles
 }//namespace UI

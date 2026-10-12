@@ -210,7 +210,6 @@ void PlaystyleSelect::CycleStyle(u8 hud, int step) {
     if(this->transitionPending || this->confirmed[hud]) return;
     u32 style = (playstyles[hud] + STYLE_COUNT + step) % STYLE_COUNT;
     playstyles[hud] = static_cast<u8>(style);
-    CustomVehicles::NoteMenuStyleSelected(hud);
     this->UpdateStyleDisplay(hud);
     Audio::RSARPlayer::PlaySoundById(step > 0 ? SOUND_ID_RIGHT_ARROW_PRESS : SOUND_ID_LEFT_ARROW_PRESS, 0, nullptr);
 }
@@ -245,6 +244,8 @@ void PlaystyleSelect::OnButtonClick(PushButton& button, u32 hudSlotId) {
     if(this->confirmed[hudSlotId]) return;
 
     this->confirmed[hudSlotId] = true;
+    
+    CustomVehicles::RequestMenuStyleReload(hudSlotId); //trigger menu model rebuild for this player
     this->arrows[hudSlotId].rightArrow.Toggle(false);
     this->arrows[hudSlotId].leftArrow.Toggle(false);
     //keep the plate highlighted; re-clicks are blocked by the gate + cleared selection
@@ -291,3 +292,5 @@ void PlaystyleSelect::OnStartPress(u32 hudSlotId) {
 
 }//namespace UI
 }//namespace Pulsar
+
+

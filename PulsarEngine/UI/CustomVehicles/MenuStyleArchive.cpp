@@ -415,6 +415,33 @@ static void ProcessMenuRebindRequests() {
     iconRebindPending = true;
 }
 
+bool RequestMenuStyleReload(u8 hud) {
+    const SectionMgr* mgr = SectionMgr::sInstance;
+    if(mgr == nullptr || mgr->curSection == nullptr) return false;
+    Pages::ModelRenderer* renderer = mgr->curSection->Get<Pages::ModelRenderer>();
+    MenuModelMgr* modelMgr = MenuModelMgr::sInstance;
+    MenuDriverModel* driver = DriverModelForHud(hud);
+    if(renderer == nullptr || driver == nullptr || modelMgr == nullptr || modelMgr->kartModels == nullptr) return false;
+    const s32 character = LoadedCharacter(hud);
+    if(character < 0) return false;
+    const u8 loadStyle = BoundMenuStyle(static_cast<u32>(character), playstyles[hud] & 3);
+    if(loadStyle == menuBoundStyle[hud]) return false;
+
+    ModelTransformator* onKartTransformator = driver->onKartTransformator;
+    driver->onKartTransformator = nullptr;
+    driver->SwitchState(hud, MenuDriverModel::MENUDRIVERMODEL_STATE_ONCHARSELECT);
+
+    LoadKartModelsByCharacter(renderer, hud, static_cast<CharacterId>(character));
+    if(!modelMgr->kartModels->players[hud].hasLoadRequest) {
+        driver->onKartTransformator = onKartTransformator;
+        driver->SwitchState(hud, MenuDriverModel::MENUDRIVERMODEL_STATE_ONKARTSELECT);
+        return false;
+    }
+
+    menuBoundStyle[hud] = loadStyle;
+    return true;
+}
+
 void MenuStyleUpdate() {
     ProcessIconRebind(); //every page, so a reload that survives a page change still settles its icons
     if(UsesPlaystyleSelectPage()) return;
