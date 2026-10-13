@@ -1,11 +1,4 @@
 #include <UI/MenuColour.hpp>
-#include <UI/RaceHUDColour.hpp>
-#include <UI/UI.hpp>
-#include <Settings/UI/SettingsPanel.hpp>
-#include <MarioKartWii/UI/Section/SectionMgr.hpp>
-#include <MarioKartWII/UI/Ctrl/UpDown.hpp>
-#include <MarioKartWII/UI/Ctrl/RadioButton.hpp>
-
 namespace Pulsar {
 namespace UI {
 
@@ -165,18 +158,6 @@ struct ClassTheme {
     const char* className;
     ThemeAction action;
     u32 count; // only read for ThemeAction_NameList
-};
-
-// Page inline button config (for buttons that are direct Page members, not in controlGroup)
-struct PageInlineButton {
-    u32 offset;
-    const char* paneName;
-};
-
-struct PageInlineConfig {
-    const PageInlineButton* buttons;
-    u32 count;
-    u32 stride; // for arrays like friendButtons[5]
 };
 
 static void ApplyPageInlineButtons(const Page* page, const PageInlineConfig* config,
