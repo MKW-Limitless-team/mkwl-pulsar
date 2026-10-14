@@ -1229,11 +1229,11 @@ void **holders = *reinterpret_cast<void ***>(reinterpret_cast<u8 *>(rm) + 0x4);
         count = *reinterpret_cast<u16 *>(reinterpret_cast<u8 *>(fontHolder) + 0x8);
     }
 
-// Pick reload heap before teardown; if none fits leave Font.szs mounted. Prefer sCurrentHeap (task default), then MEM2/MEM1 roots, then ovrHeap. ArchiveHeap not queried (may be destroyed scene).
+// Pick reload heap before teardown; if none fits leave Font.szs mounted. Prefer current (task default), then MEM2/MEM1 roots, then ovrHeap. ArchiveHeap not queried (may be destroyed scene).
     // belong to a scene that has already been destroyed, and getAllocatableSize() is virtual.
 const u32 kFontArchiveHeapBytes = 0x400000;
     HeapCandidate candidates[4];
-    candidates[0].heap = EGG::Heap::sCurrentHeap;
+    candidates[0].heap = EGG::Heap::current;
     candidates[0].reclaimedBytes = 0;
     candidates[1].heap = RKSystem::mInstance.EGGRootMEM2;
     candidates[1].reclaimedBytes = 0;
@@ -1293,10 +1293,10 @@ const u32 kFontArchiveHeapBytes = 0x400000;
         return;
     }
 
-    EGG::Heap *previousHeap = EGG::Heap::sCurrentHeap;
-    EGG::Heap::sCurrentHeap = targetHeap;
+    EGG::Heap *previousHeap = EGG::Heap::current;
+    EGG::Heap::current = targetHeap;
     Init__11FontManager(fontMgr);
-    EGG::Heap::sCurrentHeap = previousHeap;
+    EGG::Heap::current = previousHeap;
 }
 
 static void CreateSceneWithFontReload(void *self, u32 sceneId, void *parent) {
