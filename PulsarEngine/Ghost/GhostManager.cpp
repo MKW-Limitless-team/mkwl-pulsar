@@ -275,19 +275,34 @@ void Mgr::CreateAndSaveFiles(Mgr* self) {
     self->SaveLeaderboard();
     Settings::Mgr::sInstance->Save(); //trophies
 
-    char prevGhostFile[IOS::ipcMaxPath];
-    u32 prevFileIndex = self->files[self->mainGhostIndex].padding;
-    if(prevFileIndex != expertFileIdx) io->GetFolderFilePath(prevGhostFile, prevFileIndex);
+    //files[0] is the expert when the track has one, so an expertFileIdx padding is not a file index
+    char prevGhostFile[IOS::ipcMaxPath] = {0};
+    u32 prevFileIndex = 0xFF;
+    if(self->files != nullptr && self->mainGhostIndex < self->rkgCount) {
+        const u32 index = self->files[self->mainGhostIndex].padding;
+        if(index == expertFileIdx || index < static_cast<u32>(io->GetFileCount())) {
+            prevFileIndex = index;
+            if(index != expertFileIdx) io->GetFolderFilePath(prevGhostFile, index);
+        }
+    }
 
     self->Init(CupsConfig::sInstance->GetWinning());
 
-    if(prevFileIndex == expertFileIdx) self->mainGhostIndex = 0;
-    else for(int i = 1; i < self->rkgCount; ++i) {
-        char curFileName[IOS::ipcMaxPath];
-        io->GetFolderFilePath(curFileName, self->files[i].padding);
-        if(strcmp(prevGhostFile, curFileName) == 0) {
-            self->mainGhostIndex = i;
-            break;
+    if(prevFileIndex != 0xFF) {
+        if(prevFileIndex == expertFileIdx) {
+            self->mainGhostIndex = 0;
+        }
+        else {
+            for(int i = 0; i < self->rkgCount; ++i) {
+                const u32 index = self->files[i].padding;
+                if(index == expertFileIdx || index >= static_cast<u32>(io->GetFileCount())) continue;
+                char curFileName[IOS::ipcMaxPath];
+                io->GetFolderFilePath(curFileName, index);
+                if(strcmp(prevGhostFile, curFileName) == 0) {
+                    self->mainGhostIndex = i;
+                    break;
+                }
+            }
         }
     }
 
