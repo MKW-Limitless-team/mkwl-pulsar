@@ -305,6 +305,16 @@ void Mgr::CreateAndSaveFiles(Mgr* self) {
             }
         }
     }
+    else {
+        //no selected ghost: use the fastest custom ghost
+        u32 fastest = 0;
+        while(fastest < self->rkgCount && self->files[fastest].padding == expertFileIdx) ++fastest;
+        for(u32 i = fastest + 1; i < self->rkgCount; ++i) {
+            if(self->files[i].padding == expertFileIdx) continue;
+            if(self->files[i].finishTime < self->files[fastest].finishTime) fastest = i;
+        }
+        self->mainGhostIndex = fastest;
+    }
 
     SectionMgr::sInstance->sectionParams->isNewTime = true;
 }
